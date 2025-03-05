@@ -156,7 +156,8 @@ class HeliumBridge: RCTEventEmitter {
            "helium_paywall_event",
            "helium_make_purchase",
            "helium_restore_purchases",
-           "helium_download_state_changed"
+           "helium_download_state_changed",
+           "helium_fallback_visibility"
        ]
    }
    
@@ -165,74 +166,100 @@ class HeliumBridge: RCTEventEmitter {
        return true
    }
    
-  @objc
-  public func initialize(
-      _ config: NSDictionary,
-      customVariableValues:NSDictionary
-  ) {
-      guard let apiKey = config["apiKey"] as? String,
-            let viewTag = config["fallbackPaywall"] as? NSNumber else {
-          return
-      }
+    @objc
+    public func initialize(
+        _ config: NSDictionary,
+        customVariableValues: NSDictionary
+    ) {
+        guard let apiKey = config["apiKey"] as? String,
+              let viewTag = config["fallbackPaywall"] as? NSNumber else {
+            return
+        }
+        
+        let triggers = config["triggers"] as? [String]
+        let customUserId = config["customUserId"] as? String
+        let customAPIEndpoint = config["customAPIEndpoint"] as? String
+        let customUserTraits = config["customUserTraits"] as? [String: AnyCodable]
+        let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
+        
+        self.bridgingDelegate = BridgingPaywallDelegate(
+            bridge: self
+        )
       
-      let triggers = config["triggers"] as? [String]
-      let customUserId = config["customUserId"] as? String
-      let customAPIEndpoint = config["customAPIEndpoint"] as? String
-      let customUserTraits = config["customUserTraits"] as? [String: AnyCodable];
+        HeliumFetchedConfigManager.shared.$downloadStatus
+                  .sink { newValue in
+                      var newValueString = "";
+                      switch (newValue) {
+                        case .downloadFailure:
+                        newValueString = "downloadFailure";
+                        break;
+                        case .downloadSuccess:
+                        newValueString = "downloadSuccess";
+                        break;
+                        case .inProgress:
+                        newValueString = "inProgress";
+                        break;
+                        case .notDownloadedYet:
+                        newValueString = "notDownloadedYet";
+                        break;
+                      }
+                      self.sendEvent(
+                          withName: "helium_download_state_changed",
+                          body: [
+                            "status": newValueString
+                          ]
+                      )
+                  }
+                  .store(in: &cancellables)
       
-      self.bridgingDelegate = BridgingPaywallDelegate(
-          bridge: self
-      )
-    
-      HeliumFetchedConfigManager.shared.$downloadStatus
-                .sink { newValue in
-                    var newValueString = "";
-                    switch (newValue) {
-                      case .downloadFailure:
-                      newValueString = "downloadFailure";
-                      break;
-                      case .downloadSuccess:
-                      newValueString = "downloadSuccess";
-                      break;
-                      case .inProgress:
-                      newValueString = "inProgress";
-                      break;
-                      case .notDownloadedYet:
-                      newValueString = "notDownloadedYet";
-                      break;
+        // Always do view lookup on main queue
+        DispatchQueue.main.async {
+            let startTime = CFAbsoluteTimeGetCurrent()
+            
+            guard let bridge = self.bridge,
+                  let fallbackPaywall = bridge.uiManager.view(forReactTag: viewTag) else {
+                return
+            }
+            
+            
+            let wrappedView = UIViewWrapper(view: fallbackPaywall)
+            
+            // Process fallbackPaywallPerTrigger if provided
+            var triggerViewsMap: [String: any View]? = nil
+            
+            if let fallbackPaywallPerTriggerTags = fallbackPaywallPerTriggerTags {
+                triggerViewsMap = [:]
+                
+                for (trigger, tag) in fallbackPaywallPerTriggerTags {
+                    if let view = bridge.uiManager.view(forReactTag: tag) {
+                        // Initially hide trigger-specific fallback views
+                        triggerViewsMap?[trigger] = UIViewWrapper(view: view)
+                    } else {
                     }
-                    self.sendEvent(
-                        withName: "helium_download_state_changed",
-                        body: [
-                          "status": newValueString
-                        ]
-                    )
                 }
-                .store(in: &cancellables)
-    
-      // Always do view lookup on main queue
-      DispatchQueue.main.async {
-          guard let bridge = self.bridge,
-                let fallbackPaywall = bridge.uiManager.view(forReactTag: viewTag) else {
-              return
-          }
-          
-          let wrappedView = UIViewWrapper(view: fallbackPaywall)
-          
-          // Move initialization off main queue
-          DispatchQueue.global().async {
-              Helium.shared.initialize(
-                  apiKey: apiKey,
-                  heliumPaywallDelegate: self.bridgingDelegate!,
-                  fallbackPaywall: wrappedView,
-                  triggers: triggers,
-                  customUserId: customUserId,
-                  customAPIEndpoint: customAPIEndpoint,
-                  customUserTraits: HeliumUserTraits(customUserTraits ?? [:])
-              )
-          }
-      }
-  }
+            }
+            
+            let mainThreadTime = CFAbsoluteTimeGetCurrent() - startTime
+            
+            // Move initialization off main queue
+            DispatchQueue.global().async {
+                let initStartTime = CFAbsoluteTimeGetCurrent()
+                
+                Helium.shared.initialize(
+                    apiKey: apiKey,
+                    heliumPaywallDelegate: self.bridgingDelegate!,
+                    fallbackPaywall: wrappedView,
+                    triggers: triggers,
+                    customUserId: customUserId,
+                    customAPIEndpoint: customAPIEndpoint,
+                    customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
+                    fallbackPaywallPerTrigger: triggerViewsMap
+                )
+                
+                let initTime = CFAbsoluteTimeGetCurrent() - initStartTime
+            }
+        }
+    }
   
   @objc
   public func handlePurchaseResponse(_ response: NSDictionary) {
@@ -254,14 +281,14 @@ class HeliumBridge: RCTEventEmitter {
        let hostingController = UIHostingController(rootView: swiftUIView)
        resolver(hostingController.view)
    }
-  
+
   @objc
   public func presentUpsell(
-      _ trigger: String
+    _ trigger: String
   ) {
     Helium.shared.presentUpsell(trigger: trigger);
   }
-  
+    
   @objc
   public func hideUpsell() {
     _ = Helium.shared.hideUpsell();

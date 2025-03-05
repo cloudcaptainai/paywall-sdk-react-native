@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { HeliumProvider, initialize, presentUpsell, hideUpsell, UpsellView } from '@tryheliumai/paywall-sdk-react-native';
+import { useState, useEffect } from 'react';
+import { HeliumProvider, initialize, presentUpsell, UpsellView } from '@tryheliumai/paywall-sdk-react-native';
 import {
   SafeAreaView,
   ScrollView,
@@ -14,6 +14,8 @@ import { DemoHeliumCallbacks } from './demo-handlers';
 import {
   Colors,
 } from 'react-native/Libraries/NewAppScreen';
+import React from 'react';
+import Purchases from 'react-native-purchases';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -23,28 +25,24 @@ function App(): React.JSX.Element {
 
   // Create a simple fallback view component
   const FallbackView = () => (
-    <View style={{ 
-      backgroundColor: isDarkMode ? '#333' : '#eee',
-      padding: 20,
-      borderRadius: 8,
-      alignItems: 'center'
-    }}>
       <Text style={{ color: isDarkMode ? '#fff' : '#000' }}>
         Loading Paywall...
       </Text>
-    </View>
   );
 
   // Update events every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setEvents(handlers.getEventHistory());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setEvents(handlers.getEventHistory());
+  //   }, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
 
   useEffect(() => {
     initialize(handlers, {});
+    Purchases.configure({
+      apiKey: 'appl_ZLwXiFzGDqgMWuAEAahrdMnnpHi'
+    })
   }, []);
 
   const backgroundStyle = {
@@ -55,17 +53,22 @@ function App(): React.JSX.Element {
     <SafeAreaView style={[backgroundStyle, styles.container]}>
       <HeliumProvider fallbackView={FallbackView}>
         <View style={styles.buttonContainer}>
-          <Button title="Get Balance" onPress={() => initialize(
-            handlers, {
-              apiKey: "sk_7CK9PX4M2G",
-              customUserId: "test-from-rn",
-              customAPIEndpoint: "https://locket-api.tryhelium.com/on-launch",
-              customUserTraits: {
-                "exampleUserTrait": "test_value"
-              }
-            })} />
-          <Button title="Present Upsell" onPress={() => presentUpsell('after_moment_send')} />
-          <Button title="Hide Upsell" onPress={hideUpsell} />
+         <Button title="Get Balance" onPress={() => initialize(
+              handlers, {
+                apiKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjEyNTc4OTQwMDAsImlzcyI6ImJhbmRpdC1zZXJ2ZXIiLCJzdWIiOiIyIn0.h4W067mJT18f5Q1WEnU5gv3xifffQhj8UhPiHDv1h88",
+                customUserId: "test-from-rn",
+                customAPIEndpoint: "https://pikkit-api.tryhelium.com/on-launch",
+                customUserTraits: {
+                  "exampleUserTrait": "test_value"
+                },
+              })} />
+
+            
+            <Button title="Onboarding" onPress={() => presentUpsell('onboarding')} />
+            <Button title="Ad opt out" onPress={() => presentUpsell('ad-opt-out')} />
+            <Button title="Fallback" onPress={() => presentUpsell('fallback')} />
+            <Button title="Scenario analysis" onPress={() => presentUpsell('scenario-analysis')} />
+            <Button title="Closing line value" onPress={() => presentUpsell('closing-line-value')} />
           <Button 
             title={showEmbeddedUpsell ? "Hide Embedded Upsell" : "Show Embedded Upsell"} 
             onPress={() => setShowEmbeddedUpsell(!showEmbeddedUpsell)} 

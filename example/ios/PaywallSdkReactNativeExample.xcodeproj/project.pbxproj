@@ -9,9 +9,9 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		34DCC690BF5CB29BB7F26C1B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
-		40D2AA5CE1808788EEFA5469 /* Pods_PaywallSdkReactNativeExample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4999D80B27C57265C4F337C7 /* Pods_PaywallSdkReactNativeExample.framework */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		8CE286B27B93EF8DC9E89AC6 /* Pods_PaywallSdkReactNativeExample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E98DF05584C258C5EA300D6 /* Pods_PaywallSdkReactNativeExample.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -19,12 +19,12 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = PaywallSdkReactNativeExample/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PaywallSdkReactNativeExample/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = PaywallSdkReactNativeExample/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		33066312325F6D994F77853B /* Pods-PaywallSdkReactNativeExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PaywallSdkReactNativeExample.release.xcconfig"; path = "Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample.release.xcconfig"; sourceTree = "<group>"; };
-		4999D80B27C57265C4F337C7 /* Pods_PaywallSdkReactNativeExample.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PaywallSdkReactNativeExample.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		1E98DF05584C258C5EA300D6 /* Pods_PaywallSdkReactNativeExample.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PaywallSdkReactNativeExample.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = PaywallSdkReactNativeExample/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = PaywallSdkReactNativeExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		DCD2C27CF694F09F43A203B5 /* Pods-PaywallSdkReactNativeExample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PaywallSdkReactNativeExample.debug.xcconfig"; path = "Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample.debug.xcconfig"; sourceTree = "<group>"; };
+		E7F1AE7502928A6ABBE1589A /* Pods-PaywallSdkReactNativeExample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PaywallSdkReactNativeExample.debug.xcconfig"; path = "Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample.debug.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F09F9148E753BE9F07517A25 /* Pods-PaywallSdkReactNativeExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PaywallSdkReactNativeExample.release.xcconfig"; path = "Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -32,7 +32,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				40D2AA5CE1808788EEFA5469 /* Pods_PaywallSdkReactNativeExample.framework in Frameworks */,
+				8CE286B27B93EF8DC9E89AC6 /* Pods_PaywallSdkReactNativeExample.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,7 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				4999D80B27C57265C4F337C7 /* Pods_PaywallSdkReactNativeExample.framework */,
+				1E98DF05584C258C5EA300D6 /* Pods_PaywallSdkReactNativeExample.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -92,8 +92,8 @@
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				DCD2C27CF694F09F43A203B5 /* Pods-PaywallSdkReactNativeExample.debug.xcconfig */,
-				33066312325F6D994F77853B /* Pods-PaywallSdkReactNativeExample.release.xcconfig */,
+				E7F1AE7502928A6ABBE1589A /* Pods-PaywallSdkReactNativeExample.debug.xcconfig */,
+				F09F9148E753BE9F07517A25 /* Pods-PaywallSdkReactNativeExample.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -105,21 +105,19 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "PaywallSdkReactNativeExample" */;
 			buildPhases = (
-				F7661A07664DA31D745601E7 /* [CP] Check Pods Manifest.lock */,
+				C31CCE0E23FDFDD79F11481D /* [CP] Check Pods Manifest.lock */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				B59FDD0E8AE4EE99A922B939 /* [CP] Embed Pods Frameworks */,
-				28E78E8EBD469B23737BFF4E /* [CP] Copy Pods Resources */,
+				0F33B04E115321E576A92CAB /* [CP] Embed Pods Frameworks */,
+				8D3A7AE1BB41DED85452978D /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = PaywallSdkReactNativeExample;
-			packageProductDependencies = (
-			);
 			productName = PaywallSdkReactNativeExample;
 			productReference = 13B07F961A680F5B00A75B9A /* PaywallSdkReactNativeExample.app */;
 			productType = "com.apple.product-type.application";
@@ -146,8 +144,6 @@
 				Base,
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
-			packageReferences = (
-			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -187,24 +183,7 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
 		};
-		28E78E8EBD469B23737BFF4E /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample-resources.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		B59FDD0E8AE4EE99A922B939 /* [CP] Embed Pods Frameworks */ = {
+		0F33B04E115321E576A92CAB /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -221,7 +200,24 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		F7661A07664DA31D745601E7 /* [CP] Check Pods Manifest.lock */ = {
+		8D3A7AE1BB41DED85452978D /* [CP] Copy Pods Resources */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample-resources-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Copy Pods Resources";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-PaywallSdkReactNativeExample/Pods-PaywallSdkReactNativeExample-resources.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		C31CCE0E23FDFDD79F11481D /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -259,7 +255,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DCD2C27CF694F09F43A203B5 /* Pods-PaywallSdkReactNativeExample.debug.xcconfig */;
+			baseConfigurationReference = E7F1AE7502928A6ABBE1589A /* Pods-PaywallSdkReactNativeExample.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -292,7 +288,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 33066312325F6D994F77853B /* Pods-PaywallSdkReactNativeExample.release.xcconfig */;
+			baseConfigurationReference = F09F9148E753BE9F07517A25 /* Pods-PaywallSdkReactNativeExample.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -405,7 +401,10 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -489,7 +488,10 @@
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

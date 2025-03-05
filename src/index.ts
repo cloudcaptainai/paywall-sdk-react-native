@@ -1,2 +1,2 @@
-export { HeliumProvider, initialize, presentUpsell, hideUpsell, UpsellView } from './native-interface';
+export { HeliumProvider, initialize, presentUpsell, hideUpsell, UpsellView, HELIUM_CTA_NAMES } from './native-interface';
 export type { HeliumTransactionStatus, HeliumCallbacks, HeliumConfig, HeliumUpsellViewProps } from './types'; 

@@ -12,6 +12,7 @@ let NativeHeliumUpsellView: any = null;
 const getNativeHeliumUpsellView = () => {
   if (!NativeHeliumUpsellView) {
     NativeHeliumUpsellView = requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
+    console.log('NativeHeliumUpsellView', NativeHeliumUpsellView);
   }
   return NativeHeliumUpsellView;
 };
@@ -26,6 +27,7 @@ const fallbackRef = createRef<View>();
 
 // Provider component to be rendered at the app root
 export const HeliumProvider = ({ children, fallbackView: FallbackView }: HeliumProviderProps) => {
+
   useEffect(() => {
     isProviderMounted = true;
     return () => {
@@ -35,17 +37,12 @@ export const HeliumProvider = ({ children, fallbackView: FallbackView }: HeliumP
 
   return (
     <>
-      {/* Mount the fallback view but keep it hidden */}
       <View 
         ref={fallbackRef}
-        style={{ 
-          position: 'absolute',
-          opacity: 0,
-          width: 1,
-          height: 1,
-          overflow: 'hidden'
-        }} 
         collapsable={false}
+        style={{ 
+          display: 'none' // Initially hidden
+        }}
       >
         <FallbackView />
       </View>
@@ -93,6 +90,22 @@ export const initialize = (heliumCallbacks: HeliumCallbacks, config: Partial<Hel
   heliumEventEmitter.addListener(
     'helium_paywall_event',
     (event: any) => {
+      
+      if (event.type === 'paywallOpen' && event.paywallTemplateName === 'Fallback') {
+        // Update fallback view visibility if the ref exists
+        if (fallbackRef.current) {
+          fallbackRef.current.setNativeProps({
+            style: { display: 'flex' }
+          });
+        }
+      } else if (event.type === 'paywallClose' && event.paywallTemplateName === 'Fallback') {
+        // Update fallback view visibility if the ref exists
+        if (fallbackRef.current) {
+          fallbackRef.current.setNativeProps({
+            style: { display: 'none' }
+          });
+        }
+      } 
       heliumCallbacks.onHeliumPaywallEvent(event);
     }
   );
@@ -132,3 +145,8 @@ export const UpsellView: React.FC<HeliumUpsellViewProps> = ({ trigger, style }) 
     />
   );
 };
+
+export const HELIUM_CTA_NAMES = {
+  SCHEDULE_CALL: 'schedule_call',
+  SUBSCRIBE_BUTTON: 'subscribe_button',
+}

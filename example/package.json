@@ -10,8 +10,13 @@
     "build:ios": "react-native build-ios --scheme PaywallSdkReactNativeExample --mode Debug --extra-params \"-sdk iphonesimulator CC=clang CPLUSPLUS=clang++ LD=clang LDPLUSPLUS=clang++ GCC_OPTIMIZATION_LEVEL=0 GCC_PRECOMPILE_PREFIX_HEADER=YES ASSETCATALOG_COMPILER_OPTIMIZATION=time DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO\""
   },
   "dependencies": {
+    "@amplitude/analytics-react-native": "^1.4.13",
+    "@react-navigation/native": "^7.0.15",
     "react": "18.3.1",
-    "react-native": "0.74.0"
+    "react-native": "0.74.0",
+    "react-native-purchases": "^8.7.0",
+    "react-native-safe-area-context": "^5.3.0",
+    "react-native-screens": "^4.9.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

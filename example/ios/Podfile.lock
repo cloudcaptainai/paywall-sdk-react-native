@@ -1,4 +1,6 @@
 PODS:
+  - amplitude-react-native (1.4.13):
+    - React-Core
   - Analytics (4.1.8)
   - AnyCodable-FlightSchool (0.6.7)
   - boost (1.83.0)
@@ -7,7 +9,7 @@ PODS:
   - FBLazyVector (0.74.0)
   - fmt (9.1.0)
   - glog (0.3.5)
-  - Helium (1.5.6):
+  - Helium (1.6.0):
     - Analytics (~> 4.1.0)
     - AnyCodable-FlightSchool (~> 0.6.0)
     - DeviceKit (~> 4.0.0)
@@ -20,7 +22,7 @@ PODS:
   - PaywallSdkReactNative (0.1.0):
     - DoubleConversion
     - glog
-    - Helium (~> 1.5.6)
+    - Helium (~> 1.6.0)
     - hermes-engine
     - RCT-Folly (= 2024.01.01.00)
     - RCTRequired
@@ -39,6 +41,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - PurchasesHybridCommon (13.21.0):
+    - RevenueCat (= 5.18.0)
   - RCT-Folly (2024.01.01.00):
     - boost
     - DoubleConversion
@@ -967,6 +971,8 @@ PODS:
   - React-Mapbuffer (0.74.0):
     - glog
     - React-debug
+  - react-native-safe-area-context (5.3.0):
+    - React-Core
   - React-nativeconfig (0.74.0)
   - React-NativeModulesApple (0.74.0):
     - glog
@@ -1195,11 +1201,38 @@ PODS:
     - React-logger (= 0.74.0)
     - React-perflogger (= 0.74.0)
     - React-utils (= 0.74.0)
+  - RevenueCat (5.18.0)
+  - RNPurchases (8.7.0):
+    - PurchasesHybridCommon (= 13.21.0)
+    - React-Core
+  - RNScreens (4.9.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Codegen
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-RCTImage
+    - React-rendererdebug
+    - React-utils
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - SocketRocket (0.7.0)
   - SwiftyJSON (5.0.2)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - "amplitude-react-native (from `../node_modules/@amplitude/analytics-react-native`)"
   - boost (from `../node_modules/react-native/third-party-podspecs/boost.podspec`)
   - DoubleConversion (from `../node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
@@ -1233,6 +1266,7 @@ DEPENDENCIES:
   - React-jsitracing (from `../node_modules/react-native/ReactCommon/hermes/executor/`)
   - React-logger (from `../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
+  - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - React-nativeconfig (from `../node_modules/react-native/ReactCommon`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
   - React-perflogger (from `../node_modules/react-native/ReactCommon/reactperflogger`)
@@ -1256,6 +1290,8 @@ DEPENDENCIES:
   - React-runtimescheduler (from `../node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)
   - React-utils (from `../node_modules/react-native/ReactCommon/react/utils`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - RNPurchases (from `../node_modules/react-native-purchases`)
+  - RNScreens (from `../node_modules/react-native-screens`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
@@ -1265,10 +1301,14 @@ SPEC REPOS:
     - DeviceKit
     - Helium
     - Kingfisher
+    - PurchasesHybridCommon
+    - RevenueCat
     - SocketRocket
     - SwiftyJSON
 
 EXTERNAL SOURCES:
+  amplitude-react-native:
+    :path: "../node_modules/@amplitude/analytics-react-native"
   boost:
     :podspec: "../node_modules/react-native/third-party-podspecs/boost.podspec"
   DoubleConversion:
@@ -1332,6 +1372,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/logger"
   React-Mapbuffer:
     :path: "../node_modules/react-native/ReactCommon"
+  react-native-safe-area-context:
+    :path: "../node_modules/react-native-safe-area-context"
   React-nativeconfig:
     :path: "../node_modules/react-native/ReactCommon"
   React-NativeModulesApple:
@@ -1378,10 +1420,15 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/utils"
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  RNPurchases:
+    :path: "../node_modules/react-native-purchases"
+  RNScreens:
+    :path: "../node_modules/react-native-screens"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  amplitude-react-native: ee5dc7fd064fc4456d662eb483b02afa27e3dbae
   Analytics: 9655e0e1c71ea98107cfcb2b14891168acc6c6c9
   AnyCodable-FlightSchool: 261cbe76757802b17d471b9059b21e6fa5edf57b
   boost: d3f49c53809116a5d38da093a8aa78bf551aed09
@@ -1390,10 +1437,11 @@ SPEC CHECKSUMS:
   FBLazyVector: 026c8f4ae67b06e088ae01baa2271ef8a26c0e8c
   fmt: 4c2741a687cc09f0634a2e2c72a838b99f1ff120
   glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
-  Helium: 70471a1d100cf52a463fbe0f885d5ebfa0525e36
+  Helium: 068d44c74453ead7739ad81d89522fd3794fe7dc
   hermes-engine: 6eae7edb2f563ee41d7c1f91f4f2e57c26d8a5c3
   Kingfisher: 53a10ea35051a436b5fb626ca2dd8f3144d755e9
-  PaywallSdkReactNative: 1feaa6c8849bc8c14169b166134ef86a59bbe476
+  PaywallSdkReactNative: 22afb28ac9bc0cfaddcb3f9fbcadafc25844b0b6
+  PurchasesHybridCommon: 9691d74a051f30858360d78936d59dc14575014e
   RCT-Folly: 045d6ecaa59d826c5736dfba0b2f4083ff8d79df
   RCTDeprecation: 3ca8b6c36bfb302e1895b72cfe7db0de0c92cd47
   RCTRequired: 9fc183af555fd0c89a366c34c1ae70b7e03b1dc5
@@ -1418,6 +1466,7 @@ SPEC CHECKSUMS:
   React-jsitracing: 72dce571a387f9d085482142837222c31a8d6c3a
   React-logger: 03f2f7b955cfe24593a2b8c9705c23e142d1ad24
   React-Mapbuffer: 1ab3316cb736411bc641311b4b71e75099ae56ad
+  react-native-safe-area-context: f6fd1adb0c0dfb0a528f561c7c6f9297f3391af3
   React-nativeconfig: fef0a46effa630d72f137636a990d7df2f6a5f7c
   React-NativeModulesApple: 8257dd73991f2e410b9c9d12801691439a0dc821
   React-perflogger: 271f1111779fef70f9502d1d38da5132e5585230
@@ -1441,6 +1490,9 @@ SPEC CHECKSUMS:
   React-runtimescheduler: d36f67ee8d22169bcf6353c8dc676ad7653f7f6b
   React-utils: e3a1dd8f290ecc2a015d8de54c9ffbc04ada7605
   ReactCommon: caf0aeedbd8afc25731582379f15a4f86407ae29
+  RevenueCat: e825836f5d6baa870c53d7281be25a5fd91abd91
+  RNPurchases: 3b35539c86769ad8a8f838060559cf13d0a8fcb1
+  RNScreens: e046baf27b3cde7268fcc015f482e2b1451d1535
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
   SwiftyJSON: f5b1bf1cd8dd53cd25887ac0eabcfd92301c6a5a
   Yoga: 3f9165051bbc60b66f6a88c5eeafd9e9faa29500

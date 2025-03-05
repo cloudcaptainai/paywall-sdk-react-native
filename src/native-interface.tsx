@@ -12,7 +12,6 @@ let NativeHeliumUpsellView: any = null;
 const getNativeHeliumUpsellView = () => {
   if (!NativeHeliumUpsellView) {
     NativeHeliumUpsellView = requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
-    console.log('NativeHeliumUpsellView', NativeHeliumUpsellView);
   }
   return NativeHeliumUpsellView;
 };

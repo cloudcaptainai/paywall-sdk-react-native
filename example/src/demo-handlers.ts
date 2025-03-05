@@ -18,14 +18,6 @@ export class DemoHeliumCallbacks implements HeliumCallbacks {
     this.events.push({ timestamp: new Date(), event });
   }
 
-  getCustomVariableValues = (): Record<string, any> => {
-    console.log('getCustomVariableValues called');
-    return {
-      exampleVar1: 'value1',
-      exampleVar2: 'value2'
-    };
-  };
-
   getEventHistory() {
     return this.events;
   }

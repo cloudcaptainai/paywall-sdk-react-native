@@ -1,4 +1,5 @@
 export type HeliumTransactionStatus = 'completed' | 'failed' | 'cancelled' | 'pending' | 'restored';
+export type HeliumDownloadStatus = 'success' | 'failed' | 'inProgress' | 'notStarted';
 
 export interface HeliumCallbacks {
   makePurchase: (productId: string) => Promise<HeliumTransactionStatus>;

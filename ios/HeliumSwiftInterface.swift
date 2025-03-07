@@ -185,33 +185,7 @@ class HeliumBridge: RCTEventEmitter {
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
         )
-      
-        HeliumFetchedConfigManager.shared.$downloadStatus
-                  .sink { newValue in
-                      var newValueString = "";
-                      switch (newValue) {
-                        case .downloadFailure:
-                        newValueString = "downloadFailure";
-                        break;
-                        case .downloadSuccess:
-                        newValueString = "downloadSuccess";
-                        break;
-                        case .inProgress:
-                        newValueString = "inProgress";
-                        break;
-                        case .notDownloadedYet:
-                        newValueString = "notDownloadedYet";
-                        break;
-                      }
-                      self.sendEvent(
-                          withName: "helium_download_state_changed",
-                          body: [
-                            "status": newValueString
-                          ]
-                      )
-                  }
-                  .store(in: &cancellables)
-      
+        
         // Always do view lookup on main queue
         DispatchQueue.main.async {
             let startTime = CFAbsoluteTimeGetCurrent()

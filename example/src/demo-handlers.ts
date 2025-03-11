@@ -5,8 +5,7 @@ export class DemoHeliumCallbacks implements HeliumCallbacks {
   private events: { timestamp: Date; event: any }[] = [];
 
   async makePurchase(productId: string): Promise<HeliumTransactionStatus> {
-    this.events.push({ timestamp: new Date(), event: { type: 'purchase', productId } });
-    return 'completed';
+    return 'purchased';
   }
 
   async restorePurchases(): Promise<boolean> {

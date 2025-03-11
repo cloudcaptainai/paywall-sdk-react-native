@@ -48,14 +48,23 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
           return await withCheckedContinuation { continuation in
               let transactionId = UUID().uuidString
               
+                let userInfo: [String: Any] = [
+                    NSLocalizedDescriptionKey: "Failed to make purchase",
+                    NSLocalizedFailureReasonErrorKey: "An unknown error occurred",
+                    NSLocalizedRecoverySuggestionErrorKey: "Please try again later"
+                ]
+                let failureError = NSError(domain: "PaywallErrorDomain", code: 1001, userInfo: userInfo)
+
               // Store continuation callback
               purchaseState.pendingResponses[transactionId] = { response in
                   let status: HeliumPaywallTransactionStatus = switch response.status {
+                      case "completed": .purchased
                       case "purchased": .purchased
                       case "cancelled": .cancelled
                       case "restored": .restored
+                      case "failed": .failed(failureError)
                       case "pending": .pending
-                      default: .failed(NSError())
+                      default: .failed(failureError)
                   }
                   continuation.resume(returning: status)
               }
@@ -185,7 +194,7 @@ class HeliumBridge: RCTEventEmitter {
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
         )
-        
+
         // Always do view lookup on main queue
         DispatchQueue.main.async {
             let startTime = CFAbsoluteTimeGetCurrent()

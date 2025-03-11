@@ -26,6 +26,30 @@ cd ..
 npx react-native link @tryheliumai/paywall-sdk-react-native
 ```
 
+### TypeScript Configuration
+
+If you encounter TypeScript errors related to module resolution, you may need to update your `tsconfig.json` file. The SDK uses modern module resolution, so you'll need to set the `moduleResolution` option to one of the following:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node16" // or "nodenext" or "bundler"
+  }
+}
+```
+
+Alternatively, you can add a `paths` entry to your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@tryheliumai/paywall-sdk-react-native": ["./node_modules/@tryheliumai/paywall-sdk-react-native/lib/typescript/module/src/index.d.ts"]
+    }
+  }
+}
+```
+
 ## **Configuration**
 
 ### Provider Setup

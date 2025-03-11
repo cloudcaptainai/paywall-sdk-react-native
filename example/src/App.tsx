@@ -16,6 +16,7 @@ import {
 } from 'react-native/Libraries/NewAppScreen';
 import React from 'react';
 import Purchases from 'react-native-purchases';
+import { TestRevenueCatHeliumCallbacks } from './rc-handlers';
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
@@ -54,7 +55,7 @@ function App(): React.JSX.Element {
       <HeliumProvider fallbackView={FallbackView}>
         <View style={styles.buttonContainer}>
          <Button title="Get Balance" onPress={() => initialize(
-              handlers, {
+              new TestRevenueCatHeliumCallbacks(), {
                 apiKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjEyNTc4OTQwMDAsImlzcyI6ImJhbmRpdC1zZXJ2ZXIiLCJzdWIiOiIyIn0.h4W067mJT18f5Q1WEnU5gv3xifffQhj8UhPiHDv1h88",
                 customUserId: "test-from-rn",
                 customAPIEndpoint: "https://pikkit-api.tryhelium.com/on-launch",

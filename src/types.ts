@@ -1,4 +1,4 @@
-export type HeliumTransactionStatus = 'purchased' | 'failed' | 'cancelled' | 'pending' | 'restored';
+export type HeliumTransactionStatus = 'completed' | 'failed' | 'cancelled' | 'pending' | 'restored';
 export type HeliumDownloadStatus = 'success' | 'failed' | 'inProgress' | 'notStarted';
 
 export interface HeliumCallbacks {

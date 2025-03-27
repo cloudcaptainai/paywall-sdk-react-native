@@ -23,6 +23,10 @@ providerMountedPromise = new Promise<void>((resolve) => {
   }
 });
 
+// Add module-level download status tracking
+let globalDownloadStatus: HeliumDownloadStatus = 'notStarted';
+export const getDownloadStatus = () => globalDownloadStatus;
+
 // Create a context for the download status
 interface HeliumContextType {
   downloadStatus: HeliumDownloadStatus;
@@ -31,8 +35,12 @@ interface HeliumContextType {
 
 const HeliumContext = createContext<HeliumContextType | undefined>(undefined);
 
-// Create a ref to store the context setter
+// Update the setter ref to also update global status
 let setDownloadStatusRef: ((status: HeliumDownloadStatus) => void) | null = null;
+const updateDownloadStatus = (status: HeliumDownloadStatus) => {
+  globalDownloadStatus = status;
+  setDownloadStatusRef?.(status);
+};
 
 // Hook to use the Helium context
 export const useHelium = () => {
@@ -104,19 +112,17 @@ export const initialize = async (heliumCallbacks: HeliumCallbacks, config: Parti
   }
 
   // Update download status to inProgress
-  if (setDownloadStatusRef) {
-    setDownloadStatusRef('inProgress');
-  }
+  updateDownloadStatus('inProgress');
 
   // Set up event listeners
   heliumEventEmitter.addListener(
     'helium_paywall_event',
     (event: any) => {
       // Handle download status events
-      if (event.type === 'paywallsDownloadSuccess' && setDownloadStatusRef) {
-        setDownloadStatusRef('success');
-      } else if (event.type === 'paywallsDownloadError' && setDownloadStatusRef) {
-        setDownloadStatusRef('failed');
+      if (event.type === 'paywallsDownloadSuccess') {
+        updateDownloadStatus('success');
+      } else if (event.type === 'paywallsDownloadError') {
+        updateDownloadStatus('failed');
       } 
       // Handle fallback view visibility
       else if (event.type === 'paywallOpen' && event.paywallTemplateName === 'Fallback') {
@@ -170,17 +176,35 @@ export const initialize = async (heliumCallbacks: HeliumCallbacks, config: Parti
       triggers: config.triggers || [],
       customUserId: config.customUserId || null,
       customAPIEndpoint: config.customAPIEndpoint || null,
-      customUserTraits: config.customUserTraits || {
+      customUserTraits: config.customUserTraits == null ? {
         "exampleUserTrait": "test_value"
-      }
+      } : config.customUserTraits
     },
     {}
   );
 };
 
 // Update the other methods to be synchronous
-export const presentUpsell = (triggerName: string) => {
-  HeliumBridge.presentUpsell(triggerName);
+export const presentUpsell = ({
+  triggerName,
+  onFallback
+}: {
+  triggerName: string;
+  onFallback?: () => void;
+}) => {
+  const downloadStatus = getDownloadStatus();
+  HeliumBridge.getFetchedTriggerNames((triggerNames: string[]) => {
+    if (!triggerNames.includes(triggerName) || downloadStatus !== 'success') {
+      onFallback?.();
+      return;
+    }
+
+    try {
+      HeliumBridge.presentUpsell(triggerName);
+    } catch (error) {
+      onFallback?.();
+    }
+  });
 };
 
 export const hideUpsell = () => {

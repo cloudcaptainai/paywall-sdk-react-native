@@ -19,7 +19,7 @@ PODS:
     - hermes-engine/Pre-built (= 0.74.0)
   - hermes-engine/Pre-built (0.74.0)
   - Kingfisher (7.12.0)
-  - PaywallSdkReactNative (0.1.0):
+  - PaywallSdkReactNative (0.1.15):
     - DoubleConversion
     - glog
     - Helium (~> 1.6.0)
@@ -1440,7 +1440,7 @@ SPEC CHECKSUMS:
   Helium: 068d44c74453ead7739ad81d89522fd3794fe7dc
   hermes-engine: 6eae7edb2f563ee41d7c1f91f4f2e57c26d8a5c3
   Kingfisher: 53a10ea35051a436b5fb626ca2dd8f3144d755e9
-  PaywallSdkReactNative: 22afb28ac9bc0cfaddcb3f9fbcadafc25844b0b6
+  PaywallSdkReactNative: ae6e26c6ddb81c1de454eaab37c15f342909b515
   PurchasesHybridCommon: 9691d74a051f30858360d78936d59dc14575014e
   RCT-Folly: 045d6ecaa59d826c5736dfba0b2f4083ff8d79df
   RCTDeprecation: 3ca8b6c36bfb302e1895b72cfe7db0de0c92cd47

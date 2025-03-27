@@ -188,7 +188,7 @@ class HeliumBridge: RCTEventEmitter {
         let triggers = config["triggers"] as? [String]
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
-        let customUserTraits = config["customUserTraits"] as? [String: AnyCodable]
+        let customUserTraits = config["customUserTraits"] as? [String: Any]
         let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
         
         self.bridgingDelegate = BridgingPaywallDelegate(
@@ -253,7 +253,13 @@ class HeliumBridge: RCTEventEmitter {
   public func handleRestoreResponse(_ response: NSDictionary) {
       bridgingDelegate?.handleRestoreResponse(response)
   }
-   
+
+  @objc
+  public func getFetchedTriggerNames(_ callback: RCTResponseSenderBlock) {
+    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames();
+    callback([triggerNames])
+  }
+    
    @objc
    public func upsellViewForTrigger(
        _ trigger: String,

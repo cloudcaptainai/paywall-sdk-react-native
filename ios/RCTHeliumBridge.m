@@ -21,6 +21,10 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+    getFetchedTriggerNames: (RCTResponseSenderBlock)callback
+)
+
+RCT_EXTERN_METHOD(
     hideUpsell
 )
 

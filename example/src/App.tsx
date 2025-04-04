@@ -57,7 +57,7 @@ function App(): React.JSX.Element {
          <Button title="Get Balance" onPress={() => initialize(
               new TestRevenueCatHeliumCallbacks(), {
                 apiKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjEyNTc4OTQwMDAsImlzcyI6ImJhbmRpdC1zZXJ2ZXIiLCJzdWIiOiIyIn0.h4W067mJT18f5Q1WEnU5gv3xifffQhj8UhPiHDv1h88",
-                customUserId: "test-from-rn",
+                customUserId: "test-from-32rn",
                 customAPIEndpoint: "https://pikkit-api.tryhelium.com/on-launch",
                 customUserTraits: {
                   "exampleUserTrait": "test_value"
@@ -65,11 +65,11 @@ function App(): React.JSX.Element {
               })} />
 
             
-            <Button title="Onboarding" onPress={() => presentUpsell('onboarding')} />
-            <Button title="Ad opt out" onPress={() => presentUpsell('ad-opt-out')} />
-            <Button title="Fallback" onPress={() => presentUpsell('fallback')} />
-            <Button title="Scenario analysis" onPress={() => presentUpsell('scenario-analysis')} />
-            <Button title="Closing line value" onPress={() => presentUpsell('closing-line-value')} />
+            <Button title="Onboarding" onPress={() => presentUpsell({ triggerName: 'onboarding' })} />
+            <Button title="Ad opt out" onPress={() => presentUpsell({ triggerName: 'ad-opt-out' })} />
+            <Button title="Fallback" onPress={() => presentUpsell({ triggerName: 'fallback' })} />
+            <Button title="Scenario analysis" onPress={() => presentUpsell({ triggerName: 'scenario-analysis' })} />
+            <Button title="Closing line value" onPress={() => presentUpsell({ triggerName: 'closing-line-value' })} />
           <Button 
             title={showEmbeddedUpsell ? "Hide Embedded Upsell" : "Show Embedded Upsell"} 
             onPress={() => setShowEmbeddedUpsell(!showEmbeddedUpsell)} 

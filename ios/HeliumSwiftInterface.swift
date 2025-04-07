@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Helium
+import HeliumC
 import SwiftUI
 import UIKit
 import React

@@ -1,7 +1,9 @@
 PODS:
   - amplitude-react-native (1.4.13):
     - React-Core
-  - Analytics (4.1.8)
+  - AnalyticsSwiftCocoapod (1.7.3):
+    - JSONSafeEncoding (= 2.0.0)
+    - Sovran (= 1.1.1)
   - AnyCodable-FlightSchool (0.6.7)
   - boost (1.83.0)
   - DeviceKit (4.0.0)
@@ -9,8 +11,8 @@ PODS:
   - FBLazyVector (0.74.0)
   - fmt (9.1.0)
   - glog (0.3.5)
-  - Helium (1.6.0):
-    - Analytics (~> 4.1.0)
+  - Helium (1.6.3):
+    - AnalyticsSwiftCocoapod (~> 1.7.3)
     - AnyCodable-FlightSchool (~> 0.6.0)
     - DeviceKit (~> 4.0.0)
     - Kingfisher (~> 7.0)
@@ -18,11 +20,12 @@ PODS:
   - hermes-engine (0.74.0):
     - hermes-engine/Pre-built (= 0.74.0)
   - hermes-engine/Pre-built (0.74.0)
+  - JSONSafeEncoding (2.0.0)
   - Kingfisher (7.12.0)
-  - PaywallSdkReactNative (0.1.15):
+  - PaywallSdkReactNative (0.1.24):
     - DoubleConversion
     - glog
-    - Helium (~> 1.6.0)
+    - Helium (~> 1.6.3)
     - hermes-engine
     - RCT-Folly (= 2024.01.01.00)
     - RCTRequired
@@ -1228,6 +1231,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - Yoga
   - SocketRocket (0.7.0)
+  - Sovran (1.1.1)
   - SwiftyJSON (5.0.2)
   - Yoga (0.0.0)
 
@@ -1296,14 +1300,16 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
-    - Analytics
+    - AnalyticsSwiftCocoapod
     - AnyCodable-FlightSchool
     - DeviceKit
     - Helium
+    - JSONSafeEncoding
     - Kingfisher
     - PurchasesHybridCommon
     - RevenueCat
     - SocketRocket
+    - Sovran
     - SwiftyJSON
 
 EXTERNAL SOURCES:
@@ -1429,7 +1435,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   amplitude-react-native: ee5dc7fd064fc4456d662eb483b02afa27e3dbae
-  Analytics: 9655e0e1c71ea98107cfcb2b14891168acc6c6c9
+  AnalyticsSwiftCocoapod: da397b55bc7e2d90c59c8b359271ba4b3e1b57c8
   AnyCodable-FlightSchool: 261cbe76757802b17d471b9059b21e6fa5edf57b
   boost: d3f49c53809116a5d38da093a8aa78bf551aed09
   DeviceKit: 8d3a6ce9f98c3a1a591a84b4edf69693c3552083
@@ -1437,10 +1443,11 @@ SPEC CHECKSUMS:
   FBLazyVector: 026c8f4ae67b06e088ae01baa2271ef8a26c0e8c
   fmt: 4c2741a687cc09f0634a2e2c72a838b99f1ff120
   glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
-  Helium: 068d44c74453ead7739ad81d89522fd3794fe7dc
+  Helium: 9ed63da7f43ec990ed6f03bfeae2ce8452d257e9
   hermes-engine: 6eae7edb2f563ee41d7c1f91f4f2e57c26d8a5c3
+  JSONSafeEncoding: 54722ebc4fe1482e3e60a8450e1287481e32dd8b
   Kingfisher: 53a10ea35051a436b5fb626ca2dd8f3144d755e9
-  PaywallSdkReactNative: ae6e26c6ddb81c1de454eaab37c15f342909b515
+  PaywallSdkReactNative: c5cd941d5c1df48bf460bddd32c7b418babbcd6e
   PurchasesHybridCommon: 9691d74a051f30858360d78936d59dc14575014e
   RCT-Folly: 045d6ecaa59d826c5736dfba0b2f4083ff8d79df
   RCTDeprecation: 3ca8b6c36bfb302e1895b72cfe7db0de0c92cd47
@@ -1494,6 +1501,7 @@ SPEC CHECKSUMS:
   RNPurchases: 3b35539c86769ad8a8f838060559cf13d0a8fcb1
   RNScreens: e046baf27b3cde7268fcc015f482e2b1451d1535
   SocketRocket: abac6f5de4d4d62d24e11868d7a2f427e0ef940d
+  Sovran: f8212bb3855042a24689a73ea0219ca5295235da
   SwiftyJSON: f5b1bf1cd8dd53cd25887ac0eabcfd92301c6a5a
   Yoga: 3f9165051bbc60b66f6a88c5eeafd9e9faa29500
 

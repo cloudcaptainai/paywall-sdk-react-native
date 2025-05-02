@@ -6,7 +6,7 @@
 //
 import Foundation
 import React
-import HeliumC
+import Helium
 import SwiftUI
 
 // Helper extension to find parent view controller

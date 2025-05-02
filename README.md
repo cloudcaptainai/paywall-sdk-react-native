@@ -1,9 +1,3 @@
----
-title: 'SDK Quickstart (React Native)'
-description: 'Integrate Helium into your React Native App'
-icon: 'code'
----
-
 ## **Background**
 
 Get set up with the Helium SDK for iOS in 5 minutes. Reach out over your Helium slack channel, or email founders@tryhelium.com for any questions.

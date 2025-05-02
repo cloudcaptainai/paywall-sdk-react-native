@@ -1,8 +1,12 @@
 export type HeliumTransactionStatus = 'completed' | 'failed' | 'cancelled' | 'pending' | 'restored';
+export type HeliumPurchaseResult = {
+  status: HeliumTransactionStatus;
+  error?: string; // Optional error message
+};
 export type HeliumDownloadStatus = 'success' | 'failed' | 'inProgress' | 'notStarted';
 
 export interface HeliumCallbacks {
-  makePurchase: (productId: string) => Promise<HeliumTransactionStatus>;
+  makePurchase: (productId: string) => Promise<HeliumPurchaseResult>;
   restorePurchases: () => Promise<boolean>;
   onHeliumPaywallEvent: (event: any) => void;
 }

@@ -135,7 +135,8 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
       
       callback(PurchaseState.PurchaseResponse(
           transactionId: transactionId,
-          status: status
+          status: status,
+          error: nil
       ))
   }
     

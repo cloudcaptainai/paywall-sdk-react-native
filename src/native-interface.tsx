@@ -1,6 +1,7 @@
 import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeComponent } from 'react-native';
 import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
-import type { HeliumCallbacks, HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus } from './types';
+import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus, HeliumPurchaseResult } from './types';
+import { RevenueCatHeliumHandler } from './handlers/revenuecat';
 
 const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
@@ -89,7 +90,7 @@ export const HeliumProvider = ({ children, fallbackView: FallbackView }: HeliumP
         ref={fallbackRef}
         collapsable={false}
         style={{ 
-          display: 'none' // Initially hidden
+          display: 'none'
         }}
       >
         <FallbackView />
@@ -99,8 +100,8 @@ export const HeliumProvider = ({ children, fallbackView: FallbackView }: HeliumP
   );
 };
 
-// Update initialize to accept config
-export const initialize = async (heliumCallbacks: HeliumCallbacks, config: Partial<HeliumConfig> = {}) => {
+// Update initialize to accept full config
+export const initialize = async (config: HeliumConfig) => {
   // Wait for the provider to be mounted if it's not already
   if (!isProviderMounted) {
     await providerMountedPromise;
@@ -109,6 +110,30 @@ export const initialize = async (heliumCallbacks: HeliumCallbacks, config: Parti
   const viewTag = findNodeHandle(fallbackRef.current);
   if (!viewTag) {
     throw new Error('Failed to get fallback view reference. Make sure HeliumProvider is mounted with a fallback view.');
+  }
+
+  // Determine purchase handlers based on config
+  let purchaseHandler: {
+    makePurchase: (productId: string) => Promise<HeliumPurchaseResult>;
+    restorePurchases: () => Promise<boolean>;
+  };
+
+  if (config.purchaseConfig.type === 'revenuecat') {
+    // Instantiate RevenueCat handler
+    const rcHandler = new RevenueCatHeliumHandler(config.purchaseConfig.apiKey);
+    purchaseHandler = {
+      makePurchase: rcHandler.makePurchase.bind(rcHandler),
+      restorePurchases: rcHandler.restorePurchases.bind(rcHandler),
+    };
+  } else if (config.purchaseConfig.type === 'custom') {
+    // Use custom callbacks
+    purchaseHandler = {
+      makePurchase: config.purchaseConfig.makePurchase,
+      restorePurchases: config.purchaseConfig.restorePurchases,
+    };
+  } else {
+    // Handle potential future types or throw error
+    throw new Error('Invalid purchaseConfig type provided.');
   }
 
   // Update download status to inProgress
@@ -123,7 +148,7 @@ export const initialize = async (heliumCallbacks: HeliumCallbacks, config: Parti
         updateDownloadStatus('success');
       } else if (event.type === 'paywallsDownloadError') {
         updateDownloadStatus('failed');
-      } 
+      }
       // Handle fallback view visibility
       else if (event.type === 'paywallOpen' && event.paywallTemplateName === 'Fallback') {
         if (fallbackRef.current) {
@@ -138,29 +163,30 @@ export const initialize = async (heliumCallbacks: HeliumCallbacks, config: Parti
           });
         }
       }
-      
-      // Forward all events to the callback
-      heliumCallbacks.onHeliumPaywallEvent(event);
+
+      // Forward all events to the callback provided in config
+      config.onHeliumPaywallEvent(event);
     }
   );
 
-  // Set up purchase event listener
+  // Set up purchase event listener using the determined handler
   heliumEventEmitter.addListener(
     'helium_make_purchase',
     async (event: { productId: string; transactionId: string }) => {
-      const status = await heliumCallbacks.makePurchase(event.productId);
+      const result = await purchaseHandler.makePurchase(event.productId);
       HeliumBridge.handlePurchaseResponse({
         transactionId: event.transactionId,
-        status: status
+        status: result.status,
+        error: result.error
       });
     }
   );
 
-  // Set up restore purchases event listener
+  // Set up restore purchases event listener using the determined handler
   heliumEventEmitter.addListener(
     'helium_restore_purchases',
     async (event: { transactionId: string }) => {
-      const success = await heliumCallbacks.restorePurchases();
+      const success = await purchaseHandler.restorePurchases();
       HeliumBridge.handleRestoreResponse({
         transactionId: event.transactionId,
         status: success ? 'restored' : 'failed'
@@ -168,17 +194,14 @@ export const initialize = async (heliumCallbacks: HeliumCallbacks, config: Parti
     }
   );
 
-  // Initialize the bridge with merged config
   HeliumBridge.initialize(
-    { 
+    {
       apiKey: config.apiKey,
       fallbackPaywall: viewTag,
       triggers: config.triggers || [],
       customUserId: config.customUserId || null,
       customAPIEndpoint: config.customAPIEndpoint || null,
-      customUserTraits: config.customUserTraits == null ? {
-        "exampleUserTrait": "test_value"
-      } : config.customUserTraits
+      customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits
     },
     {}
   );

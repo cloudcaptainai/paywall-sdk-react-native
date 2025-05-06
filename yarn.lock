@@ -3727,6 +3727,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@revenuecat/purchases-typescript-internal@npm:13.29.1":
+  version: 13.29.1
+  resolution: "@revenuecat/purchases-typescript-internal@npm:13.29.1"
+  checksum: eda5cefc84897b17f9c831e58db02adb65bfaa4699735da13d90e28a66864ae341934fde16ad6ea7793e0aee51a62eb59fb3d5440286f2fded90ae9ce19d663c
+  languageName: node
+  linkType: hard
+
 "@rnx-kit/chromium-edge-launcher@npm:^1.0.0":
   version: 1.0.0
   resolution: "@rnx-kit/chromium-edge-launcher@npm:1.0.0"
@@ -3823,12 +3830,14 @@ __metadata:
     react: 18.2.0
     react-native: 0.71.7
     react-native-builder-bob: ^0.37.0
+    react-native-purchases: ">=5.1.0"
     release-it: ^17.10.0
     turbo: ^1.10.7
     typescript: ^5.2.2
   peerDependencies:
     react: ">=18.2.0"
     react-native: ">=0.71.7"
+    react-native-purchases: ">=5.1.0"
   languageName: unknown
   linkType: soft
 
@@ -12356,6 +12365,18 @@ __metadata:
   version: 0.71.19
   resolution: "react-native-gradle-plugin@npm:0.71.19"
   checksum: 2e3ab679f0b81edd81b9fb88a73a16c8b9b6dbef4e7158fd894c42e6dff04ba8d11f1b9663ffa2c30d0d9deee3cd44b033cd280322c010be3c290e4422088a7a
+  languageName: node
+  linkType: hard
+
+"react-native-purchases@npm:>=5.1.0":
+  version: 8.9.6
+  resolution: "react-native-purchases@npm:8.9.6"
+  dependencies:
+    "@revenuecat/purchases-typescript-internal": 13.29.1
+  peerDependencies:
+    react: ">= 16.6.3"
+    react-native: "*"
+  checksum: 238cc882853e861cabe3ed80f697a43a9fac14270d1e68a10fa7e51b4f69402b6ca77f9524a11a4ffe93026ea366a54143e9dd39cc8f853a2027662d746c0335
   languageName: node
   linkType: hard
 

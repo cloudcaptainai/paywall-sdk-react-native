@@ -11,6 +11,8 @@ const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 export const NativeHeliumUpsellView = requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
 
 let isProviderMounted = false;
+// Add a flag to track if initialization has occurred
+let isInitialized = false;
 // Add a promise to track when the provider is mounted
 let providerMountedPromise: Promise<void>;
 let resolveProviderMounted: () => void;
@@ -102,6 +104,11 @@ export const HeliumProvider = ({ children, fallbackView: FallbackView }: HeliumP
 
 // Update initialize to accept full config
 export const initialize = async (config: HeliumConfig) => {
+  // Early return if already initialized
+  if (isInitialized) {
+    return;
+  }
+
   // Wait for the provider to be mounted if it's not already
   if (!isProviderMounted) {
     await providerMountedPromise;
@@ -205,6 +212,9 @@ export const initialize = async (config: HeliumConfig) => {
     },
     {}
   );
+  
+  // Mark as initialized after successful initialization
+  isInitialized = true;
 };
 
 // Update the other methods to be synchronous

@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import HeliumC
+import Helium
 import SwiftUI
 import UIKit
 import React
@@ -28,6 +28,7 @@ class PurchaseState: ObservableObject {
     struct PurchaseResponse {
         let transactionId: String
         let status: String
+        let error: String?
     }
     
     @Published var pendingResponses: [String: (PurchaseResponse) -> Void] = [:]
@@ -47,16 +48,15 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
     public func makePurchase(productId: String) async -> HeliumPaywallTransactionStatus {
           return await withCheckedContinuation { continuation in
               let transactionId = UUID().uuidString
-              
+              // Store continuation callback
+              purchaseState.pendingResponses[transactionId] = { response in
                 let userInfo: [String: Any] = [
-                    NSLocalizedDescriptionKey: "Failed to make purchase",
+                    NSLocalizedDescriptionKey: response.error ?? "Failed to make purchase",
                     NSLocalizedFailureReasonErrorKey: "An unknown error occurred",
                     NSLocalizedRecoverySuggestionErrorKey: "Please try again later"
                 ]
                 let failureError = NSError(domain: "PaywallErrorDomain", code: 1001, userInfo: userInfo)
 
-              // Store continuation callback
-              purchaseState.pendingResponses[transactionId] = { response in
                   let status: HeliumPaywallTransactionStatus = switch response.status {
                       case "completed": .purchased
                       case "purchased": .purchased
@@ -88,12 +88,15 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
             return
         }
         
+        let error = response["error"] as? String
+        
         // Remove callback before executing to prevent multiple calls
         purchaseState.pendingResponses.removeValue(forKey: transactionId)
         
         callback(PurchaseState.PurchaseResponse(
             transactionId: transactionId,
-            status: status
+            status: status,
+            error: error
         ))
     }
     
@@ -132,7 +135,8 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
       
       callback(PurchaseState.PurchaseResponse(
           transactionId: transactionId,
-          status: status
+          status: status,
+          error: nil
       ))
   }
     

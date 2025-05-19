@@ -56,7 +56,7 @@ export const useHelium = () => {
 
 interface HeliumProviderProps {
   children: React.ReactNode;
-  fallbackView: React.ComponentType;
+  fallbackView?: React.ComponentType;
 }
 
 // Create a ref to store the fallback view reference
@@ -65,7 +65,12 @@ const fallbackRef = createRef<View>();
 let FallbackViewComponent: React.ComponentType | null = null;
 
 // Provider component to be rendered at the app root
-export const HeliumProvider = ({ children, fallbackView: FallbackView }: HeliumProviderProps) => {
+export const HeliumProvider = ({ children, fallbackView }: HeliumProviderProps) => {
+  // TODO - deprecate fallbackView
+  if (fallbackView) {
+    console.warn('HeliumProvider: fallbackView is deprecated. Use onFallback passed to presentUpsell instead.');
+  }
+  const FallbackView = (() => null);
   // Add state for download status
   const [downloadStatus, setDownloadStatus] = useState<HeliumDownloadStatus>('notStarted');
 

@@ -249,6 +249,10 @@ export const hideUpsell = () => {
   HeliumBridge.hideUpsell();
 };
 
+export const hideAllUpsells = () => {
+  HeliumBridge.hideAllUpsells();
+};
+
 // Update the UpsellView component to handle the style prop
 export const UpsellView: React.FC<HeliumUpsellViewProps & {
   fallbackViewProps?: Record<string, any>;

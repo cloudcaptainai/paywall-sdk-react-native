@@ -286,4 +286,9 @@ class HeliumBridge: RCTEventEmitter {
   public func hideUpsell() {
     _ = Helium.shared.hideUpsell();
   }
+
+  @objc
+  public func hideAllUpsells() {
+    Helium.shared.hideAllUpsells();
+  }
 }

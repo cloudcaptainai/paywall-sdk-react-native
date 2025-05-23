@@ -29,6 +29,10 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+    hideAllUpsells
+)
+
+RCT_EXTERN_METHOD(
     handlePurchaseResponse:(NSDictionary *)response
 )
 

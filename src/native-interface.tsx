@@ -233,6 +233,10 @@ export const presentUpsell = ({
   const downloadStatus = getDownloadStatus();
   HeliumBridge.getFetchedTriggerNames((triggerNames: string[]) => {
     if (!triggerNames.includes(triggerName) || downloadStatus !== 'success') {
+      console.log(
+        `Helium trigger "${triggerName}" not found or download status not successful. Status:`,
+        downloadStatus
+      );
       onFallback?.();
       return;
     }
@@ -240,6 +244,7 @@ export const presentUpsell = ({
     try {
       HeliumBridge.presentUpsell(triggerName);
     } catch (error) {
+      console.log('Helium present error', error);
       onFallback?.();
     }
   });
@@ -247,6 +252,10 @@ export const presentUpsell = ({
 
 export const hideUpsell = () => {
   HeliumBridge.hideUpsell();
+};
+
+export const hideAllUpsells = () => {
+  HeliumBridge.hideAllUpsells();
 };
 
 // Update the UpsellView component to handle the style prop

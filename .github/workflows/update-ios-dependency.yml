@@ -1,0 +1,40 @@
+name: Update iOS Dependency
+
+on:
+  repository_dispatch:
+    types: [update-ios-dependency]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'iOS SDK version to update to'
+        required: true
+        type: string
+
+jobs:
+  update-ios-dependency:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update podspec
+        run: |
+          # Update the iOS SDK dependency version in the podspec
+          sed -i "s/s\.dependency 'Helium', '[^']*'/s.dependency 'Helium', '${{ github.event.client_payload.version || github.event.inputs.version }}'/g" PaywallSdkReactNative.podspec
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Update iOS SDK dependency to ${{ github.event.client_payload.version || github.event.inputs.version }}"
+          branch: update-ios-sdk-${{ github.event.client_payload.version || github.event.inputs.version }}
+          title: "Update iOS SDK to ${{ github.event.client_payload.version || github.event.inputs.version }}"
+          body: |
+            Automated update of iOS SDK dependency to version ${{ github.event.client_payload.version || github.event.inputs.version }}.
+
+            Changes:
+            - Updated podspec dependency version
+
+            This PR was automatically created by the iOS SDK release workflow.

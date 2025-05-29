@@ -47,6 +47,11 @@ To release a new version:
   - Creates git tag and GitHub release
   - Package is built and published to npm
 
+## Updates from the helium-swift dependency
+
+A new release from the helium-swift SDK should trigger a workflow that creates a PR in this repo with the new version.
+You can also manually trigger this workflow with specified helium-swift version.
+
 ## Development Workflow
 
 ### Local Development

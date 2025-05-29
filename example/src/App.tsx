@@ -38,6 +38,7 @@ function App(): React.JSX.Element {
   //   }, 1000);
   //   return () => clearInterval(interval);
   // }, []);
+  //
 
   useEffect(() => {
     initialize(handlers, {});
@@ -64,27 +65,27 @@ function App(): React.JSX.Element {
                 },
               })} />
 
-            
+
             <Button title="Onboarding" onPress={() => presentUpsell({ triggerName: 'onboarding' })} />
             <Button title="Ad opt out" onPress={() => presentUpsell({ triggerName: 'ad-opt-out' })} />
             <Button title="Fallback" onPress={() => presentUpsell({ triggerName: 'fallback' })} />
             <Button title="Scenario analysis" onPress={() => presentUpsell({ triggerName: 'scenario-analysis' })} />
             <Button title="Closing line value" onPress={() => presentUpsell({ triggerName: 'closing-line-value' })} />
-          <Button 
-            title={showEmbeddedUpsell ? "Hide Embedded Upsell" : "Show Embedded Upsell"} 
-            onPress={() => setShowEmbeddedUpsell(!showEmbeddedUpsell)} 
+          <Button
+            title={showEmbeddedUpsell ? "Hide Embedded Upsell" : "Show Embedded Upsell"}
+            onPress={() => setShowEmbeddedUpsell(!showEmbeddedUpsell)}
           />
         </View>
-        
+
         {showEmbeddedUpsell && (
           <View style={styles.embeddedUpsell}>
-            <UpsellView 
+            <UpsellView
               trigger="after_moment_send"
               style={{ width: '100%', height: '100%' }}
             />
           </View>
         )}
-        
+
         <View style={styles.eventContainer}>
           <Text style={styles.eventTitle}>Event History:</Text>
           <ScrollView style={styles.eventList}>

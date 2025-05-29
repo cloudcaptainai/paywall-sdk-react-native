@@ -25,6 +25,21 @@ jobs:
           # Update the iOS SDK dependency version in the podspec
           sed -i "s/s\.dependency 'Helium', '[^']*'/s.dependency 'Helium', '${{ github.event.client_payload.version || github.event.inputs.version }}'/g" PaywallSdkReactNative.podspec
 
+      - name: Bump package.json version
+        run: |
+          # Get current version and increment patch version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          NEW_VERSION=$(node -e "
+            const semver = require('semver');
+            const current = '$CURRENT_VERSION';
+            console.log(semver.inc(current, 'patch'));
+          ")
+
+          # Update package.json with new version
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/g" package.json
+
+          echo "Bumped version from $CURRENT_VERSION to $NEW_VERSION"
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
@@ -36,5 +51,6 @@ jobs:
 
             Changes:
             - Updated podspec dependency version
+            - Bumped package.json version (patch increment)
 
             This PR was automatically created by the iOS SDK release workflow.

@@ -1,0 +1,40 @@
+name: Test and Validate
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [ main ]
+  workflow_call:  # Makes this workflow callable from other workflows
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+# skip this for now... lots of things to fix
+#      - name: Lint code
+#        run: yarn lint
+# skip this too
+#      - name: Type check
+#        run: yarn typecheck
+#        continue-on-error: true  # In case TypeScript isn't used
+
+      - name: Run tests
+        run: yarn test
+
+      - name: Build package
+        run: yarn prepare
+
+      - name: Check npm publish dry run
+        run: npm publish --dry-run

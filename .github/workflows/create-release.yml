@@ -1,0 +1,134 @@
+name: Create Release And Publish
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'package.json' ]  # Only trigger when package.json is modified
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'  # Skip version check if manually triggered
+    outputs:
+      version-changed: ${{ steps.check.outputs.changed }}
+      new-version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check version change
+        id: check
+        run: |
+          # Get current version from package.json
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+
+          # Get previous version from the previous commit
+          git checkout HEAD~1 -- package.json 2>/dev/null || echo "No previous version found"
+          PREVIOUS_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "0.0.0")
+          echo "Previous version: $PREVIOUS_VERSION"
+
+          # Restore current package.json
+          git checkout HEAD -- package.json
+
+          # Compare versions
+          if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
+            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          else
+            echo "Version unchanged"
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          fi
+
+  get-current-version:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    outputs:
+      current-version: ${{ steps.extract.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Extract current version
+        id: extract
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "Current version: $CURRENT_VERSION"
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+  test:
+    needs: [check-version, get-current-version]
+    if: always() && (needs.check-version.outputs.version-changed == 'true' || github.event_name == 'workflow_dispatch')
+    uses: ./.github/workflows/run-tests.yml  # Calls the reusable test workflow
+
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # so can create release and create tag
+    needs: [check-version, get-current-version, test]
+    if: always() && (needs.check-version.outputs.version-changed == 'true' || github.event_name == 'workflow_dispatch')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.check-version.outputs.new-version || needs.get-current-version.outputs.current-version }}"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.check-version.outputs.new-version || needs.get-current-version.outputs.current-version }}"
+          gh release create "$VERSION" \
+            --generate-notes
+
+      - name: Success output
+        run: |
+          VERSION="${{ needs.check-version.outputs.new-version || needs.get-current-version.outputs.current-version }}"
+          echo "✅ Successfully created release for version $VERSION"
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [check-version, get-current-version, test, release]
+    if: always() && (needs.check-version.outputs.version-changed == 'true' || github.event_name == 'workflow_dispatch')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build package
+        run: yarn prepare
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_KEY }}
+        run: npm publish
+
+      - name: Success output
+        run: |
+          VERSION="${{ needs.check-version.outputs.new-version || needs.get-current-version.outputs.current-version }}"
+          echo "✅ Successfully published version $VERSION to npm"

@@ -1,6 +1,6 @@
 {
   "name": "@tryheliumai/paywall-sdk-react-native",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "Paywall SDK Helium",
   "source": "./src/index.ts",
   "main": "./lib/commonjs/index.js",
@@ -180,6 +180,6 @@
   "create-react-native-library": {
     "type": "legacy-module",
     "languages": "kotlin-swift",
-    "version": "0.48.1"
+    "version": "0.2.14"
   }
 }

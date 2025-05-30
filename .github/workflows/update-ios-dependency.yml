@@ -39,7 +39,7 @@ jobs:
           ")
 
           # Update package.json with new version
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/g" package.json
+          sed -i '0,/"version": "[^"]*"/{s/"version": "[^"]*"/"version": "'$NEW_VERSION'"/}' package.json
 
           echo "Bumped version from $CURRENT_VERSION to $NEW_VERSION"
 

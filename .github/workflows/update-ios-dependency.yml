@@ -30,9 +30,12 @@ jobs:
           # Get current version and increment patch version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           NEW_VERSION=$(node -e "
-            const semver = require('semver');
             const current = '$CURRENT_VERSION';
-            console.log(semver.inc(current, 'patch'));
+            const parts = current.split('.');
+            const major = parseInt(parts[0]);
+            const minor = parseInt(parts[1]);
+            const patch = parseInt(parts[2]) + 1;
+            console.log(\`\${major}.\${minor}.\${patch}\`);
           ")
 
           # Update package.json with new version
@@ -43,11 +46,11 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          commit-message: "Update iOS SDK dependency to ${{ github.event.client_payload.version || github.event.inputs.version }}"
+          commit-message: "Update helium-swift SDK dependency to ${{ github.event.client_payload.version || github.event.inputs.version }}"
           branch: update-ios-sdk-${{ github.event.client_payload.version || github.event.inputs.version }}
-          title: "Update iOS SDK to ${{ github.event.client_payload.version || github.event.inputs.version }}"
+          title: "Update helium-swift SDK to ${{ github.event.client_payload.version || github.event.inputs.version }}"
           body: |
-            Automated update of iOS SDK dependency to version ${{ github.event.client_payload.version || github.event.inputs.version }}.
+            Automated update of helium-swift SDK dependency to version ${{ github.event.client_payload.version || github.event.inputs.version }}.
 
             Changes:
             - Updated podspec dependency version

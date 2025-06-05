@@ -238,6 +238,7 @@ export const presentUpsell = ({
         downloadStatus
       );
       onFallback?.();
+      HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
       return;
     }
 
@@ -246,6 +247,7 @@ export const presentUpsell = ({
     } catch (error) {
       console.log('Helium present error', error);
       onFallback?.();
+      HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
     }
   });
 };
@@ -264,10 +266,25 @@ export const UpsellView: React.FC<HeliumUpsellViewProps & {
   fallbackViewWrapperStyles?: Record<string, any>;
 }> = ({ trigger, fallbackViewProps, fallbackViewWrapperStyles }) => {
   const { downloadStatus } = useHelium();
-  
+
+  const showFallback = downloadStatus === 'notStarted' ||
+    downloadStatus === 'inProgress' ||
+    downloadStatus === 'failed';
+
+  useEffect(() => {
+    if (showFallback && FallbackViewComponent) {
+      HeliumBridge.fallbackOpenOrCloseEvent(trigger, true, 'embedded');
+    }
+    return () => {
+      if (showFallback && FallbackViewComponent) {
+        HeliumBridge.fallbackOpenOrCloseEvent(trigger, false, 'embedded');
+      }
+    };
+  }, [showFallback, trigger]);
+
   // If download status is notStarted or inProgress, we haven't fully initialized yet
   // In this case, we should render the fallback view
-  if (downloadStatus === 'notStarted' || downloadStatus === 'inProgress' || downloadStatus === 'failed') {
+  if (showFallback) {
     // If we have a fallback view component, render it
     if (FallbackViewComponent) {
       return (

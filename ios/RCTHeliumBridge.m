@@ -40,4 +40,10 @@ RCT_EXTERN_METHOD(
     handleRestoreResponse:(NSDictionary *)response
 )
 
+RCT_EXTERN_METHOD(
+    fallbackOpenOrCloseEvent:(NSString *)trigger
+    isOpen:(BOOL)isOpen
+    viewType:(NSString *)viewType
+)
+
 @end

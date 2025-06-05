@@ -291,4 +291,14 @@ class HeliumBridge: RCTEventEmitter {
   public func hideAllUpsells() {
     Helium.shared.hideAllUpsells();
   }
+
+  @objc
+  public func fallbackOpenOrCloseEvent(
+    _ trigger: String?,
+    isOpen: Bool,
+    viewType: String?
+  ) {
+    HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType)
+  }
+
 }

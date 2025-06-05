@@ -294,7 +294,7 @@ class HeliumBridge: RCTEventEmitter {
 
   @objc
   public func fallbackOpenOrCloseEvent(
-    trigger: String?,
+    _ trigger: String?,
     isOpen: Bool,
     viewType: String?
   ) {

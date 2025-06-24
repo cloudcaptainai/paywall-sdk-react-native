@@ -193,6 +193,7 @@ class HeliumBridge: RCTEventEmitter {
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
         let customUserTraits = config["customUserTraits"] as? [String: Any]
+        let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
         let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
         
         self.bridgingDelegate = BridgingPaywallDelegate(
@@ -240,6 +241,7 @@ class HeliumBridge: RCTEventEmitter {
                     customUserId: customUserId,
                     customAPIEndpoint: customAPIEndpoint,
                     customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
+                    revenueCatAppUserId: revenueCatAppUserId,
                     fallbackPaywallPerTrigger: triggerViewsMap
                 )
                 

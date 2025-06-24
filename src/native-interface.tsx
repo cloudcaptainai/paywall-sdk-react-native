@@ -2,6 +2,7 @@ import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeC
 import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
 import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus, HeliumPurchaseResult } from './types';
 import { RevenueCatHeliumHandler } from './handlers/revenuecat';
+import Purchases from 'react-native-purchases';
 
 const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
@@ -66,7 +67,7 @@ let FallbackViewComponent: React.ComponentType | null = null;
 
 // Provider component to be rendered at the app root
 export const HeliumProvider = ({ children, fallbackView }: HeliumProviderProps) => {
-  // TODO - deprecate fallbackView
+  // TODO - deprecate fallbackView (and maybe HeliumProvider too?)
   if (fallbackView) {
     console.warn('HeliumProvider: fallbackView is deprecated. Use onFallback passed to presentUpsell instead.');
   }
@@ -206,6 +207,12 @@ export const initialize = async (config: HeliumConfig) => {
     }
   );
 
+  const usingRevenueCat = await Purchases.isConfigured();
+  let revenueCatAppUserId = null;
+  if (usingRevenueCat) {
+    revenueCatAppUserId = await Purchases.getAppUserID();
+  }
+
   HeliumBridge.initialize(
     {
       apiKey: config.apiKey,
@@ -213,7 +220,8 @@ export const initialize = async (config: HeliumConfig) => {
       triggers: config.triggers || [],
       customUserId: config.customUserId || null,
       customAPIEndpoint: config.customAPIEndpoint || null,
-      customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits
+      customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits,
+      revenueCatAppUserId: revenueCatAppUserId,
     },
     {}
   );

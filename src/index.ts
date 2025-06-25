@@ -16,5 +16,4 @@ export type {
   HeliumTransactionStatus,
   HeliumConfig,
   HeliumUpsellViewProps,
-  CustomPurchaseConfig,
 } from './types';

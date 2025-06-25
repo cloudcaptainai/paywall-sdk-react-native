@@ -1,8 +1,6 @@
 import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeComponent } from 'react-native';
 import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
 import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus, HeliumPurchaseResult } from './types';
-import { RevenueCatHeliumHandler } from './handlers/revenuecat';
-import Purchases from 'react-native-purchases';
 
 const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
@@ -125,29 +123,10 @@ export const initialize = async (config: HeliumConfig) => {
     throw new Error('Failed to get fallback view reference. Make sure HeliumProvider is mounted with a fallback view.');
   }
 
-  // Determine purchase handlers based on config
-  let purchaseHandler: {
-    makePurchase: (productId: string) => Promise<HeliumPurchaseResult>;
-    restorePurchases: () => Promise<boolean>;
+  const purchaseHandler = {
+    makePurchase: config.purchaseConfig.makePurchase,
+    restorePurchases: config.purchaseConfig.restorePurchases,
   };
-
-  if (config.purchaseConfig.type === 'revenuecat') {
-    // Instantiate RevenueCat handler
-    const rcHandler = new RevenueCatHeliumHandler(config.purchaseConfig.apiKey);
-    purchaseHandler = {
-      makePurchase: rcHandler.makePurchase.bind(rcHandler),
-      restorePurchases: rcHandler.restorePurchases.bind(rcHandler),
-    };
-  } else if (config.purchaseConfig.type === 'custom') {
-    // Use custom callbacks
-    purchaseHandler = {
-      makePurchase: config.purchaseConfig.makePurchase,
-      restorePurchases: config.purchaseConfig.restorePurchases,
-    };
-  } else {
-    // Handle potential future types or throw error
-    throw new Error('Invalid purchaseConfig type provided.');
-  }
 
   // Update download status to inProgress
   updateDownloadStatus('inProgress');
@@ -207,12 +186,6 @@ export const initialize = async (config: HeliumConfig) => {
     }
   );
 
-  const usingRevenueCat = await Purchases.isConfigured();
-  let revenueCatAppUserId = null;
-  if (usingRevenueCat) {
-    revenueCatAppUserId = await Purchases.getAppUserID();
-  }
-
   HeliumBridge.initialize(
     {
       apiKey: config.apiKey,
@@ -221,7 +194,7 @@ export const initialize = async (config: HeliumConfig) => {
       customUserId: config.customUserId || null,
       customAPIEndpoint: config.customAPIEndpoint || null,
       customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits,
-      revenueCatAppUserId: revenueCatAppUserId,
+      revenueCatAppUserId: config.revenueCatAppUserId,
     },
     {}
   );

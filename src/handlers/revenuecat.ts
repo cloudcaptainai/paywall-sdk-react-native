@@ -1,12 +1,16 @@
 import Purchases, { PURCHASES_ERROR_CODE } from 'react-native-purchases';
-import type { HeliumPurchaseResult, RevenueCatPurchaseConfig } from '../types';
+import type { HeliumPurchaseConfig, HeliumPurchaseResult } from '../types';
 import type { PurchasesError, PurchasesPackage, CustomerInfoUpdateListener, CustomerInfo, PurchasesEntitlementInfo } from 'react-native-purchases';
 
 // Rename the factory function
-export function createRevenueCatPurchaseConfig(config?: { apiKey?: string }): RevenueCatPurchaseConfig {
+export function createRevenueCatPurchaseConfig(config?: {
+  apiKey?: string;
+}): HeliumPurchaseConfig {
+    const rcHandler = new RevenueCatHeliumHandler(config?.apiKey);
     return {
-        type: 'revenuecat',
-        apiKey: config?.apiKey,
+      apiKey: config?.apiKey,
+      makePurchase: rcHandler.makePurchase.bind(rcHandler),
+      restorePurchases: rcHandler.restorePurchases.bind(rcHandler),
     };
 }
 

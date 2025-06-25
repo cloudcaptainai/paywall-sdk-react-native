@@ -3727,10 +3727,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@revenuecat/purchases-typescript-internal@npm:13.29.1":
-  version: 13.29.1
-  resolution: "@revenuecat/purchases-typescript-internal@npm:13.29.1"
-  checksum: eda5cefc84897b17f9c831e58db02adb65bfaa4699735da13d90e28a66864ae341934fde16ad6ea7793e0aee51a62eb59fb3d5440286f2fded90ae9ce19d663c
+"@revenuecat/purchases-typescript-internal@npm:13.37.0":
+  version: 13.37.0
+  resolution: "@revenuecat/purchases-typescript-internal@npm:13.37.0"
+  checksum: 6a0361eb52d0b310ea42b4d164deb3806a563e1f92a3a5e0a0de32d4bee6368a20f867b0d74be67c93a6cd7f1657987c03db9b197d72f326e094eb5e582f1abf
   languageName: node
   linkType: hard
 
@@ -3838,6 +3838,9 @@ __metadata:
     react: ">=18.2.0"
     react-native: ">=0.71.7"
     react-native-purchases: ">=5.1.0"
+  peerDependenciesMeta:
+    react-native-purchases:
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -12369,14 +12372,14 @@ __metadata:
   linkType: hard
 
 "react-native-purchases@npm:>=5.1.0":
-  version: 8.9.6
-  resolution: "react-native-purchases@npm:8.9.6"
+  version: 8.11.6
+  resolution: "react-native-purchases@npm:8.11.6"
   dependencies:
-    "@revenuecat/purchases-typescript-internal": 13.29.1
+    "@revenuecat/purchases-typescript-internal": 13.37.0
   peerDependencies:
     react: ">= 16.6.3"
     react-native: "*"
-  checksum: 238cc882853e861cabe3ed80f697a43a9fac14270d1e68a10fa7e51b4f69402b6ca77f9524a11a4ffe93026ea366a54143e9dd39cc8f853a2027662d746c0335
+  checksum: e22e5793d928781e5b0135eabf08898cd92c96dc2f7266c2143abb081e55175ef077d5936e42f2feb1aa0cd6acb9c8b4cad483da1776d946d3a304a7c30e23ce
   languageName: node
   linkType: hard
 

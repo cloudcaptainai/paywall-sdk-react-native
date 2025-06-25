@@ -88,6 +88,7 @@
     "react": "18.2.0",
     "react-native": "0.71.7",
     "react-native-builder-bob": "^0.37.0",
+    "react-native-purchases": ">=5.1.0",
     "release-it": "^17.10.0",
     "turbo": "^1.10.7",
     "typescript": "^5.2.2"

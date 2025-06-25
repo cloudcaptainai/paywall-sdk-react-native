@@ -101,7 +101,9 @@
     "react-native-purchases": ">=5.1.0"
   },
   "peerDependenciesMeta": {
-    "react-native-purchases": { "optional": true }
+    "react-native-purchases": {
+      "optional": true
+    }
   },
   "workspaces": [
     "example"

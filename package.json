@@ -34,6 +34,8 @@
     "cpp",
     "*.podspec",
     "react-native.config.js",
+    "ios/generated",
+    "android/generated",
     "!ios/build",
     "!android/build",
     "!android/gradle",
@@ -51,15 +53,21 @@
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
-    "prepare": "bob build"
+    "prepare": "bob build && yarn codegen:ios",
+    "codegen:ios": "node node_modules/react-native/scripts/generate-codegen-artifacts.js --path . --outputPath ios/generated --platform ios"
   },
   "codegenConfig": {
-    "name": "PaywallSdkReactNativeSpec",
+    "name": "NativeHeliumBridgeSpec",
     "type": "modules",
-    "jsSrcsDir": "src",
+    "jsSrcsDir": "./src/specs",
     "android": {
       "javaPackageName": "com.tryhelium.paywall"
-    }
+    },
+    "outputDir": {
+      "ios": "ios/generated",
+      "android": "android/generated"
+    },
+    "includesGeneratedCode": true
   },
   "keywords": [
     "react-native",

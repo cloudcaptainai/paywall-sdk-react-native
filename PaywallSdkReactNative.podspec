@@ -13,12 +13,18 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "14.0" }
   s.source       = { :git => "https://github.com/cloudcaptainai/helium-react-native-sdk.git", :tag => "#{s.version}" }
 
-  s.source_files = "ios/**/*.{h,m,mm,swift}"
+  # IMPORTANT: Include generated source files here
+  s.source_files = "ios/**/*.{h,m,mm,swift}", "ios/generated/**/*.{h,cpp,mm}"
 
-  s.dependency 'Helium', '2.0.11'
+  # New Architecture build settings
+  s.pod_target_xcconfig    = {
+      "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/../node_modules/react-native/React/CxxHeaders\"",
+      "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -DRCT_NEW_ARCH_ENABLED",
+      "CLANG_CXX_LANGUAGE_STANDARD" => "c++17" # Ensure C++17 for JSI
+  }
 
-  # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.
-  # See https://github.com/facebook/react-native/blob/febf6b7f33fdb4904669f99d795eba4c0f95d7bf/scripts/cocoapods/new_architecture.rb#L79.
+  s.dependency 'Helium', '2.0.11' # Your custom native dependency
+
   if respond_to?(:install_modules_dependencies, true)
     install_modules_dependencies(s)
   else

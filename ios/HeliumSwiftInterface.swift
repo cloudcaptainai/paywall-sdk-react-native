@@ -178,11 +178,11 @@ class HeliumBridge: RCTEventEmitter {
    override static func requiresMainQueueSetup() -> Bool {
        return true
    }
-   
-    @objc
-    public func initialize(
-        _ config: NSDictionary,
-        customVariableValues: NSDictionary
+
+    // MARK: - Turbo Module Implementation
+    func initialize(
+        config: [String: Any],
+        customVariableValues: [String: Any]
     ) {
         guard let apiKey = config["apiKey"] as? String,
               let viewTag = config["fallbackPaywall"] as? NSNumber else {
@@ -244,30 +244,26 @@ class HeliumBridge: RCTEventEmitter {
                     revenueCatAppUserId: revenueCatAppUserId,
                     fallbackPaywallPerTrigger: triggerViewsMap
                 )
-                
+
                 let initTime = CFAbsoluteTimeGetCurrent() - initStartTime
             }
         }
     }
-  
-  @objc
-  public func handlePurchaseResponse(_ response: NSDictionary) {
-      bridgingDelegate?.handlePurchaseResponse(response)
-  }
-  
-  @objc
-  public func handleRestoreResponse(_ response: NSDictionary) {
-      bridgingDelegate?.handleRestoreResponse(response)
+
+  func handlePurchaseResponse(response: [String: Any]) {
+      bridgingDelegate?.handlePurchaseResponse(response as NSDictionary)
   }
 
-  @objc
-  public func getFetchedTriggerNames(_ callback: RCTResponseSenderBlock) {
-    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames();
-    callback([triggerNames])
+  func handleRestoreResponse(response: [String: Any]) {
+      bridgingDelegate?.handleRestoreResponse(response as NSDictionary)
   }
-    
-   @objc
-   public func upsellViewForTrigger(
+
+  func getFetchedTriggerNames(callback: @escaping ([String]) -> Void) {
+    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames();
+    callback(triggerNames)
+  }
+
+   func upsellViewForTrigger(
        _ trigger: String,
        resolver: @escaping RCTPromiseResolveBlock,
        rejecter: @escaping RCTPromiseRejectBlock
@@ -277,30 +273,32 @@ class HeliumBridge: RCTEventEmitter {
        resolver(hostingController.view)
    }
 
-  @objc
-  public func presentUpsell(
-    _ trigger: String
-  ) {
+  func presentUpsell(trigger: String) {
     Helium.shared.presentUpsell(trigger: trigger);
   }
-    
-  @objc
-  public func hideUpsell() {
+
+  func hideUpsell() {
     _ = Helium.shared.hideUpsell();
   }
 
-  @objc
-  public func hideAllUpsells() {
+  func hideAllUpsells() {
     Helium.shared.hideAllUpsells();
   }
 
-  @objc
-  public func fallbackOpenOrCloseEvent(
-    _ trigger: String?,
+  func fallbackOpenOrCloseEvent(
+    trigger: String?,
     isOpen: Bool,
     viewType: String?
   ) {
     HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType)
+  }
+
+  func addListener(eventType: String) {
+    // Event emitter handles this automatically
+  }
+
+  func removeListeners(count: Double) {
+    // Event emitter handles this automatically
   }
 
 }

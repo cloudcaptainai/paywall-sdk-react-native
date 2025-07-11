@@ -53,6 +53,14 @@
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build"
   },
+  "codegenConfig": {
+    "name": "PaywallSdkReactNativeSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.tryhelium.paywall"
+    }
+  },
   "keywords": [
     "react-native",
     "ios",

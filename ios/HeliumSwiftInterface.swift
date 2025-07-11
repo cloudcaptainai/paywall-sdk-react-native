@@ -15,11 +15,11 @@ import Combine
 
 struct UIViewWrapper: UIViewRepresentable, View {
     let view: UIView
-
+    
     func makeUIView(context: Context) -> UIView {
         return view
     }
-
+    
     func updateUIView(_ uiView: UIView, context: Context) {
     }
 }
@@ -30,7 +30,7 @@ class PurchaseState: ObservableObject {
         let status: String
         let error: String?
     }
-
+    
     @Published var pendingResponses: [String: (PurchaseResponse) -> Void] = [:]
 }
 
@@ -38,13 +38,13 @@ class PurchaseState: ObservableObject {
 class BridgingPaywallDelegate: HeliumPaywallDelegate {
     private let purchaseState = PurchaseState()
     private weak var bridge: HeliumBridge?
-
+    
     init(
           bridge: HeliumBridge
       ) {
           self.bridge = bridge
       }
-
+  
     public func makePurchase(productId: String) async -> HeliumPaywallTransactionStatus {
           return await withCheckedContinuation { continuation in
               let transactionId = UUID().uuidString
@@ -68,7 +68,7 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
                   }
                   continuation.resume(returning: status)
               }
-
+              
               // Send event to initiate purchase
               bridge?.sendEvent(
                   withName: "helium_make_purchase",
@@ -80,38 +80,38 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
               )
           }
       }
-
+      
     func handlePurchaseResponse(_ response: NSDictionary) {
         guard let transactionId = response["transactionId"] as? String,
               let status = response["status"] as? String,
               let callback = purchaseState.pendingResponses[transactionId] else {
             return
         }
-
+        
         let error = response["error"] as? String
-
+        
         // Remove callback before executing to prevent multiple calls
         purchaseState.pendingResponses.removeValue(forKey: transactionId)
-
+        
         callback(PurchaseState.PurchaseResponse(
             transactionId: transactionId,
             status: status,
             error: error
         ))
     }
-
-
+    
+  
   func restorePurchases() async -> Bool {
       return await withCheckedContinuation { continuation in
           let transactionId = UUID().uuidString
-
+          
           // Store continuation callback
           purchaseState.pendingResponses[transactionId] = { response in
               // Convert string status to bool
               let success = response.status == "restored"
               continuation.resume(returning: success)
           }
-
+          
           // Send event to initiate restore
           bridge?.sendEvent(
               withName: "helium_restore_purchases",
@@ -129,17 +129,17 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
             let callback = purchaseState.pendingResponses[transactionId] else {
           return
       }
-
+      
       // Remove callback before executing to prevent multiple calls
       purchaseState.pendingResponses.removeValue(forKey: transactionId)
-
+      
       callback(PurchaseState.PurchaseResponse(
           transactionId: transactionId,
           status: status,
           error: nil
       ))
   }
-
+    
     func onHeliumPaywallEvent(event: HeliumPaywallEvent) {
           let eventDict = event.toDictionary()
           bridge?.sendEvent(
@@ -147,7 +147,7 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
               body: eventDict
           )
       }
-
+    
     func getCustomVariableValues() -> [String: Any?] {
         return [:];
     }
@@ -163,7 +163,7 @@ class HeliumBridge: RCTEventEmitter {
   public override init() {
       super.init()
   }
-
+  
    public override func supportedEvents() -> [String] {
        return [
            "helium_paywall_event",
@@ -173,47 +173,29 @@ class HeliumBridge: RCTEventEmitter {
            "helium_fallback_visibility"
        ]
    }
-
+   
    @objc
    override static func requiresMainQueueSetup() -> Bool {
        return true
    }
-
-    // MARK: - Legacy/Shared Implementation Methods
+   
     @objc
-    public func initialize(_ config: NSDictionary) {
+    public func initialize(
+        _ config: NSDictionary,
+        customVariableValues: NSDictionary
+    ) {
         guard let apiKey = config["apiKey"] as? String,
               let viewTag = config["fallbackPaywall"] as? NSNumber else {
             return
         }
-
+        
         let triggers = config["triggers"] as? [String]
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
+        let customUserTraits = config["customUserTraits"] as? [String: Any]
         let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
         let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
-
-        performInitialize(
-            apiKey: apiKey,
-            viewTag: viewTag,
-            triggers: triggers,
-            customUserId: customUserId,
-            customAPIEndpoint: customAPIEndpoint,
-            revenueCatAppUserId: revenueCatAppUserId,
-            fallbackPaywallPerTriggerTags: fallbackPaywallPerTriggerTags
-        )
-    }
-
-    // MARK: - Shared Implementation Logic
-    private func performInitialize(
-        apiKey: String,
-        viewTag: NSNumber,
-        triggers: [String]?,
-        customUserId: String?,
-        customAPIEndpoint: String?,
-        revenueCatAppUserId: String?,
-        fallbackPaywallPerTriggerTags: [String: NSNumber]?
-    ) {
+        
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
         )
@@ -221,21 +203,21 @@ class HeliumBridge: RCTEventEmitter {
         // Always do view lookup on main queue
         DispatchQueue.main.async {
             let startTime = CFAbsoluteTimeGetCurrent()
-
+            
             guard let bridge = self.bridge,
                   let fallbackPaywall = bridge.uiManager.view(forReactTag: viewTag) else {
                 return
             }
-
-
+            
+            
             let wrappedView = UIViewWrapper(view: fallbackPaywall)
-
+            
             // Process fallbackPaywallPerTrigger if provided
             var triggerViewsMap: [String: any View]? = nil
-
+            
             if let fallbackPaywallPerTriggerTags = fallbackPaywallPerTriggerTags {
                 triggerViewsMap = [:]
-
+                
                 for (trigger, tag) in fallbackPaywallPerTriggerTags {
                     if let view = bridge.uiManager.view(forReactTag: tag) {
                         // Initially hide trigger-specific fallback views
@@ -244,13 +226,13 @@ class HeliumBridge: RCTEventEmitter {
                     }
                 }
             }
-
+            
             let mainThreadTime = CFAbsoluteTimeGetCurrent() - startTime
-
+            
             // Move initialization off main queue
             DispatchQueue.global().async {
                 let initStartTime = CFAbsoluteTimeGetCurrent()
-
+                
                 Helium.shared.initialize(
                     apiKey: apiKey,
                     heliumPaywallDelegate: self.bridgingDelegate!,
@@ -258,65 +240,67 @@ class HeliumBridge: RCTEventEmitter {
                     triggers: triggers,
                     customUserId: customUserId,
                     customAPIEndpoint: customAPIEndpoint,
-                    customUserTraits: HeliumUserTraits([:]),
+                    customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
                     revenueCatAppUserId: revenueCatAppUserId,
                     fallbackPaywallPerTrigger: triggerViewsMap
                 )
-
+                
                 let initTime = CFAbsoluteTimeGetCurrent() - initStartTime
             }
         }
     }
+  
+  @objc
+  public func handlePurchaseResponse(_ response: NSDictionary) {
+      bridgingDelegate?.handlePurchaseResponse(response)
+  }
+  
+  @objc
+  public func handleRestoreResponse(_ response: NSDictionary) {
+      bridgingDelegate?.handleRestoreResponse(response)
+  }
 
-    @objc
-    public func handlePurchaseResponse(_ response: NSDictionary) {
-        bridgingDelegate?.handlePurchaseResponse(response)
-    }
+  @objc
+  public func getFetchedTriggerNames(_ callback: RCTResponseSenderBlock) {
+    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames();
+    callback([triggerNames])
+  }
+    
+   @objc
+   public func upsellViewForTrigger(
+       _ trigger: String,
+       resolver: @escaping RCTPromiseResolveBlock,
+       rejecter: @escaping RCTPromiseRejectBlock
+   ) {
+       let swiftUIView = Helium.shared.upsellViewForTrigger(trigger: trigger)
+       let hostingController = UIHostingController(rootView: swiftUIView)
+       resolver(hostingController.view)
+   }
 
-    @objc
-    public func handleRestoreResponse(_ response: NSDictionary) {
-        bridgingDelegate?.handleRestoreResponse(response)
-    }
+  @objc
+  public func presentUpsell(
+    _ trigger: String
+  ) {
+    Helium.shared.presentUpsell(trigger: trigger);
+  }
+    
+  @objc
+  public func hideUpsell() {
+    _ = Helium.shared.hideUpsell();
+  }
 
-    @objc
-    public func getFetchedTriggerNames(_ callback: RCTResponseSenderBlock) {
-      let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames();
-      callback([triggerNames])
-    }
+  @objc
+  public func hideAllUpsells() {
+    Helium.shared.hideAllUpsells();
+  }
 
-     @objc
-     public func upsellViewForTrigger(
-         _ trigger: String,
-         resolver: @escaping RCTPromiseResolveBlock,
-         rejecter: @escaping RCTPromiseRejectBlock
-     ) {
-         let swiftUIView = Helium.shared.upsellViewForTrigger(trigger: trigger)
-         let hostingController = UIHostingController(rootView: swiftUIView)
-         resolver(hostingController.view)
-     }
-
-    @objc
-    public func presentUpsell(_ trigger: String) {
-      Helium.shared.presentUpsell(trigger: trigger);
-    }
-
-    @objc
-    public func hideUpsell() {
-      _ = Helium.shared.hideUpsell();
-    }
-
-    @objc
-    public func hideAllUpsells() {
-      Helium.shared.hideAllUpsells();
-    }
-
-    @objc
-    public func fallbackOpenOrCloseEvent(
-      _ trigger: String?,
-      isOpen: Bool,
-      viewType: String?
-    ) {
-      HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType)
-    }
+  @objc
+  public func fallbackOpenOrCloseEvent(
+    _ trigger: String?,
+    isOpen: Bool,
+    viewType: String?
+  ) {
+    HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType)
+  }
 
 }

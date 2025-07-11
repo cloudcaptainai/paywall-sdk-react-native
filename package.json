@@ -53,21 +53,15 @@
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
-    "prepare": "bob build && yarn codegen:ios",
-    "codegen:ios": "node node_modules/react-native/scripts/generate-codegen-artifacts.js --path . --outputPath ios/generated --platform ios"
+    "prepare": "bob build"
   },
   "codegenConfig": {
-    "name": "NativeHeliumBridgeSpec",
+    "name": "HeliumBridgeSpec",
     "type": "modules",
     "jsSrcsDir": "./src/specs",
     "android": {
       "javaPackageName": "com.tryhelium.paywall"
-    },
-    "outputDir": {
-      "ios": "ios/generated",
-      "android": "android/generated"
-    },
-    "includesGeneratedCode": true
+    }
   },
   "keywords": [
     "react-native",

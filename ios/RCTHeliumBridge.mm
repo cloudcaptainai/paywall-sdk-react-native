@@ -1,32 +1,49 @@
-#import "HeliumSwiftInterface.h"
+//
+//  RCTHeliumBridge.mm
+//  HeliumBridgeNative
+//
+//  Created by Anish Doshi on 2/11/25.
+//
 
+#import <Foundation/Foundation.h>
 #import <React/RCTBridgeModule.h>
-#import <React/RCTEventEmitter.h>
+#import "PaywallSdkReactNative-Bridging-Header.h"
 
-#ifdef RCT_NEW_ARCH_ENABLED
-#import <ReactCommon/RCTTurboModule.h>
-#endif // RCT_NEW_ARCH_ENABLED
+@interface RCT_EXTERN_MODULE(HeliumBridge, NSObject)
 
-#ifdef RCT_NEW_ARCH_ENABLED
-@interface HeliumBridge () <RCTTurboModule>
-@end
-#endif // RCT_NEW_ARCH_ENABLED
+RCT_EXTERN_METHOD(
+    initialize:(NSDictionary *)config
+    customVariableValues:(NSDictionary *)config
+)
 
-@implementation HeliumBridge
+RCT_EXTERN_METHOD(
+    presentUpsell:(NSString *)trigger
+)
 
-RCT_EXPORT_MODULE()
+RCT_EXTERN_METHOD(
+    getFetchedTriggerNames: (RCTResponseSenderBlock)callback
+)
 
-+ (BOOL)requiresMainQueueSetup
-{
-  return YES;
-}
+RCT_EXTERN_METHOD(
+    hideUpsell
+)
 
-#ifdef RCT_NEW_ARCH_ENABLED
-- (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
-    (const facebook::react::ObjCTurboModule::InitParams &)params
-{
-  return std::make_shared<facebook::react::NativeHeliumBridgeSpecJSI>(params);
-}
-#endif // RCT_NEW_ARCH_ENABLED
+RCT_EXTERN_METHOD(
+    hideAllUpsells
+)
+
+RCT_EXTERN_METHOD(
+    handlePurchaseResponse:(NSDictionary *)response
+)
+
+RCT_EXTERN_METHOD(
+    handleRestoreResponse:(NSDictionary *)response
+)
+
+RCT_EXTERN_METHOD(
+    fallbackOpenOrCloseEvent:(NSString *)trigger
+    isOpen:(BOOL)isOpen
+    viewType:(NSString *)viewType
+)
 
 @end

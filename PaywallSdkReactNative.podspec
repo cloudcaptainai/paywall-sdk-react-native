@@ -1,6 +1,7 @@
 require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
 
 Pod::Spec.new do |s|
   s.name         = "PaywallSdkReactNative"
@@ -13,18 +14,13 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "14.0" }
   s.source       = { :git => "https://github.com/cloudcaptainai/helium-react-native-sdk.git", :tag => "#{s.version}" }
 
-  # IMPORTANT: Include generated source files here
-  s.source_files = "ios/**/*.{h,m,mm,swift}", "ios/generated/**/*.{h,cpp,mm}"
+  s.source_files = "ios/**/*.{h,m,mm,cpp,swift}"
+  s.private_header_files = "ios/**/*.h"
 
-  # New Architecture build settings
-  s.pod_target_xcconfig    = {
-      "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/../node_modules/react-native/React/CxxHeaders\"",
-      "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -DRCT_NEW_ARCH_ENABLED",
-      "CLANG_CXX_LANGUAGE_STANDARD" => "c++17" # Ensure C++17 for JSI
-  }
+  s.dependency 'Helium', '2.0.11'
 
-  s.dependency 'Helium', '2.0.11' # Your custom native dependency
-
+  # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.
+  # See https://github.com/facebook/react-native/blob/febf6b7f33fdb4904669f99d795eba4c0f95d7bf/scripts/cocoapods/new_architecture.rb#L79.
   if respond_to?(:install_modules_dependencies, true)
     install_modules_dependencies(s)
   else

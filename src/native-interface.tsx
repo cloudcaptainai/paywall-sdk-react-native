@@ -1,9 +1,17 @@
-import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeComponent } from 'react-native';
-import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
+import { findNodeHandle, View, requireNativeComponent } from 'react-native';
+import React, {
+  createRef,
+  useEffect,
+  useState,
+  createContext,
+  useContext,
+} from 'react';
 import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus } from './types';
 
-const { HeliumBridge } = NativeModules;
-const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
+// const { HeliumBridge } = NativeModules;
+import HeliumBridge from './specs/NativeHeliumBridge';
+
+// const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 // Register the native component once at module level
 // This ensures it's only registered once, even during hot reloading
@@ -123,82 +131,80 @@ export const initialize = async (config: HeliumConfig) => {
     throw new Error('Failed to get fallback view reference. Make sure HeliumProvider is mounted with a fallback view.');
   }
 
-  const purchaseHandler = {
-    makePurchase: config.purchaseConfig.makePurchase,
-    restorePurchases: config.purchaseConfig.restorePurchases,
-  };
+  // const purchaseHandler = {
+  //   makePurchase: config.purchaseConfig.makePurchase,
+  //   restorePurchases: config.purchaseConfig.restorePurchases,
+  // };
 
   // Update download status to inProgress
   updateDownloadStatus('inProgress');
 
   // Set up event listeners
-  heliumEventEmitter.addListener(
-    'helium_paywall_event',
-    (event: any) => {
-      // Handle download status events
-      if (event.type === 'paywallsDownloadSuccess') {
-        updateDownloadStatus('success');
-      } else if (event.type === 'paywallsDownloadError') {
-        updateDownloadStatus('failed');
-      }
-      // Handle fallback view visibility
-      else if (event.type === 'paywallOpen' && event.paywallTemplateName === 'Fallback') {
-        if (fallbackRef.current) {
-          fallbackRef.current.setNativeProps({
-            style: { display: 'flex' }
-          });
-        }
-      } else if (event.type === 'paywallClose' && event.paywallTemplateName === 'Fallback') {
-        if (fallbackRef.current) {
-          fallbackRef.current.setNativeProps({
-            style: { display: 'none' }
-          });
-        }
-      }
-
-      // Forward all events to the callback provided in config
-      config.onHeliumPaywallEvent(event);
-    }
-  );
+  // heliumEventEmitter.addListener(
+  //   'helium_paywall_event',
+  //   (event: any) => {
+  //     // Handle download status events
+  //     if (event.type === 'paywallsDownloadSuccess') {
+  //       updateDownloadStatus('success');
+  //     } else if (event.type === 'paywallsDownloadError') {
+  //       updateDownloadStatus('failed');
+  //     }
+  //     // Handle fallback view visibility
+  //     else if (event.type === 'paywallOpen' && event.paywallTemplateName === 'Fallback') {
+  //       if (fallbackRef.current) {
+  //         fallbackRef.current.setNativeProps({
+  //           style: { display: 'flex' }
+  //         });
+  //       }
+  //     } else if (event.type === 'paywallClose' && event.paywallTemplateName === 'Fallback') {
+  //       if (fallbackRef.current) {
+  //         fallbackRef.current.setNativeProps({
+  //           style: { display: 'none' }
+  //         });
+  //       }
+  //     }
+  //
+  //     // Forward all events to the callback provided in config
+  //     config.onHeliumPaywallEvent(event);
+  //   }
+  // );
 
   // Set up purchase event listener using the determined handler
-  heliumEventEmitter.addListener(
-    'helium_make_purchase',
-    async (event: { productId: string; transactionId: string }) => {
-      const result = await purchaseHandler.makePurchase(event.productId);
-      HeliumBridge.handlePurchaseResponse({
-        transactionId: event.transactionId,
-        status: result.status,
-        error: result.error
-      });
-    }
-  );
+  // heliumEventEmitter.addListener(
+  //   'helium_make_purchase',
+  //   async (event: { productId: string; transactionId: string }) => {
+  //     const result = await purchaseHandler.makePurchase(event.productId);
+  //     HeliumBridge.handlePurchaseResponse({
+  //       transactionId: event.transactionId,
+  //       status: result.status,
+  //       error: result.error
+  //     });
+  //   }
+  // );
 
   // Set up restore purchases event listener using the determined handler
-  heliumEventEmitter.addListener(
-    'helium_restore_purchases',
-    async (event: { transactionId: string }) => {
-      const success = await purchaseHandler.restorePurchases();
-      HeliumBridge.handleRestoreResponse({
-        transactionId: event.transactionId,
-        status: success ? 'restored' : 'failed'
-      });
-    }
-  );
+  // heliumEventEmitter.addListener(
+  //   'helium_restore_purchases',
+  //   async (event: { transactionId: string }) => {
+  //     const success = await purchaseHandler.restorePurchases();
+  //     // HeliumBridge.handleRestoreResponse({
+  //     //   transactionId: event.transactionId,
+  //     //   status: success ? 'restored' : 'failed'
+  //     // });
+  //   }
+  // );
 
   HeliumBridge.initialize(
     {
       apiKey: config.apiKey,
       fallbackPaywall: viewTag,
       triggers: config.triggers || [],
-      customUserId: config.customUserId || null,
-      customAPIEndpoint: config.customAPIEndpoint || null,
-      customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits,
+      customUserId: config.customUserId,
+      customAPIEndpoint: config.customAPIEndpoint,
       revenueCatAppUserId: config.revenueCatAppUserId,
-    },
-    {}
+    }
   );
-  
+
   // Mark as initialized after successful initialization
   isInitialized = true;
 };
@@ -206,39 +212,40 @@ export const initialize = async (config: HeliumConfig) => {
 // Update the other methods to be synchronous
 export const presentUpsell = ({
   triggerName,
-  onFallback
 }: {
   triggerName: string;
   onFallback?: () => void;
 }) => {
-  const downloadStatus = getDownloadStatus();
-  HeliumBridge.getFetchedTriggerNames((triggerNames: string[]) => {
-    if (!triggerNames.includes(triggerName) || downloadStatus !== 'success') {
-      console.log(
-        `Helium trigger "${triggerName}" not found or download status not successful. Status:`,
-        downloadStatus
-      );
-      onFallback?.();
-      HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
-      return;
-    }
+  HeliumBridge.presentUpsell(triggerName);
 
-    try {
-      HeliumBridge.presentUpsell(triggerName);
-    } catch (error) {
-      console.log('Helium present error', error);
-      onFallback?.();
-      HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
-    }
-  });
+  // const downloadStatus = getDownloadStatus();
+  // HeliumBridge.getFetchedTriggerNames((triggerNames: string[]) => {
+  //   if (!triggerNames.includes(triggerName) || downloadStatus !== 'success') {
+  //     console.log(
+  //       `Helium trigger "${triggerName}" not found or download status not successful. Status:`,
+  //       downloadStatus
+  //     );
+  //     onFallback?.();
+  //     HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
+  //     return;
+  //   }
+  //
+  //   try {
+  //     HeliumBridge.presentUpsell(triggerName);
+  //   } catch (error) {
+  //     console.log('Helium present error', error);
+  //     onFallback?.();
+  //     HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
+  //   }
+  // });
 };
 
 export const hideUpsell = () => {
-  HeliumBridge.hideUpsell();
+  // HeliumBridge.hideUpsell();
 };
 
 export const hideAllUpsells = () => {
-  HeliumBridge.hideAllUpsells();
+  // HeliumBridge.hideAllUpsells();
 };
 
 // Update the UpsellView component to handle the style prop
@@ -252,16 +259,16 @@ export const UpsellView: React.FC<HeliumUpsellViewProps & {
     downloadStatus === 'inProgress' ||
     downloadStatus === 'failed';
 
-  useEffect(() => {
-    if (showFallback && FallbackViewComponent) {
-      HeliumBridge.fallbackOpenOrCloseEvent(trigger, true, 'embedded');
-    }
-    return () => {
-      if (showFallback && FallbackViewComponent) {
-        HeliumBridge.fallbackOpenOrCloseEvent(trigger, false, 'embedded');
-      }
-    };
-  }, [showFallback, trigger]);
+  // useEffect(() => {
+  //   if (showFallback && FallbackViewComponent) {
+  //     HeliumBridge.fallbackOpenOrCloseEvent(trigger, true, 'embedded');
+  //   }
+  //   return () => {
+  //     if (showFallback && FallbackViewComponent) {
+  //       HeliumBridge.fallbackOpenOrCloseEvent(trigger, false, 'embedded');
+  //     }
+  //   };
+  // }, [showFallback, trigger]);
 
   // If download status is notStarted or inProgress, we haven't fully initialized yet
   // In this case, we should render the fallback view

@@ -303,4 +303,17 @@ class HeliumBridge: RCTEventEmitter {
     HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType)
   }
 
+  @objc
+  public func getPaywallInfo(
+    _ trigger: String,
+    callback: RCTResponseSenderBlock
+  ) {
+    guard let paywallInfo = Helium.shared.getPaywallInfo(trigger: trigger) else {
+      callback(["Invalid trigger or paywalls not ready.", NSNull(), NSNull()])
+      return
+    }
+
+    callback([NSNull(), paywallInfo.paywallTemplateName, paywallInfo.shouldShow])
+  }
+
 }

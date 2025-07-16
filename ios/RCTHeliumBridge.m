@@ -46,4 +46,9 @@ RCT_EXTERN_METHOD(
     viewType:(NSString *)viewType
 )
 
+RCT_EXTERN_METHOD(
+    getPaywallInfo:(NSString *)trigger
+    callback:(RCTResponseSenderBlock)callback
+)
+
 @end

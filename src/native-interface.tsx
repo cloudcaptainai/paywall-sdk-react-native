@@ -1,6 +1,6 @@
 import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeComponent } from 'react-native';
 import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
-import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus } from './types';
+import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus, PaywallInfo } from './types';
 
 const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
@@ -239,6 +239,27 @@ export const hideUpsell = () => {
 
 export const hideAllUpsells = () => {
   HeliumBridge.hideAllUpsells();
+};
+
+export const getPaywallInfo = async (
+  trigger: string
+): Promise<PaywallInfo | undefined> => {
+  return new Promise((resolve) => {
+    HeliumBridge.getPaywallInfo(
+      trigger,
+      (error: string | null, templateName: string, shouldShow: boolean) => {
+        if (error) {
+          console.log(`[Helium] ${error}`);
+          resolve(undefined);
+          return;
+        }
+        resolve({
+          paywallTemplateName: templateName,
+          shouldShow: shouldShow,
+        });
+      }
+    );
+  });
 };
 
 // Update the UpsellView component to handle the style prop

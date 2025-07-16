@@ -6,6 +6,7 @@ export {
   presentUpsell,
   hideUpsell,
   hideAllUpsells,
+  getPaywallInfo,
   UpsellView,
   HELIUM_CTA_NAMES,
   useHelium,

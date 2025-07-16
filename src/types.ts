@@ -51,4 +51,9 @@ export interface HeliumConfig {
 export interface HeliumUpsellViewProps {
   trigger: string;
   style?: any;
-} 
+}
+
+export interface PaywallInfo {
+  paywallTemplateName: string;
+  shouldShow: boolean;
+}

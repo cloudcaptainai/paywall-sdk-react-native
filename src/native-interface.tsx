@@ -1,7 +1,6 @@
 import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeComponent } from 'react-native';
 import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
 import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus, PaywallInfo } from './types';
-
 const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
@@ -186,6 +185,26 @@ export const initialize = async (config: HeliumConfig) => {
     }
   );
 
+  let fallbackBundleURL;
+  if (config.fallbackBundlePath) {
+    try {
+      const ExpoFileSystem = require('expo-file-system');
+
+      const jsonContent = await ExpoFileSystem.readAsStringAsync(
+        `${ExpoFileSystem.bundleDirectory}${config.fallbackBundlePath}`
+      );
+
+      fallbackBundleURL = `${ExpoFileSystem.documentDirectory}helium-fallback.json`;
+      await ExpoFileSystem.writeAsStringAsync(fallbackBundleURL, jsonContent);
+
+    } catch (error) {
+      console.log(
+        '[Helium] fallbackBundlePath not supported - expo-file-system not available. (This feature not supported on bare RN.)',
+        error
+      );
+    }
+  }
+
   HeliumBridge.initialize(
     {
       apiKey: config.apiKey,
@@ -195,6 +214,7 @@ export const initialize = async (config: HeliumConfig) => {
       customAPIEndpoint: config.customAPIEndpoint || null,
       customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits,
       revenueCatAppUserId: config.revenueCatAppUserId,
+      fallbackBundleURL: fallbackBundleURL,
     },
     {}
   );

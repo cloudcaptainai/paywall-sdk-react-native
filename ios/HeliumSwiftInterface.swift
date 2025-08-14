@@ -188,14 +188,15 @@ class HeliumBridge: RCTEventEmitter {
               let viewTag = config["fallbackPaywall"] as? NSNumber else {
             return
         }
-        
+
         let triggers = config["triggers"] as? [String]
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
         let customUserTraits = config["customUserTraits"] as? [String: Any]
         let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
         let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
-        
+        let fallbackBundleURLString = config["fallbackBundleURL"] as? String
+
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
         )
@@ -226,9 +227,15 @@ class HeliumBridge: RCTEventEmitter {
                     }
                 }
             }
-            
+
+            // Convert string path to URL if provided
+            var fallbackBundleURL: URL? = nil
+            if let urlString = fallbackBundleURLString {
+                fallbackBundleURL = URL(fileURLWithPath: urlString)
+            }
+
             let mainThreadTime = CFAbsoluteTimeGetCurrent() - startTime
-            
+
             // Move initialization off main queue
             DispatchQueue.global().async {
                 let initStartTime = CFAbsoluteTimeGetCurrent()
@@ -242,6 +249,7 @@ class HeliumBridge: RCTEventEmitter {
                     customAPIEndpoint: customAPIEndpoint,
                     customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
                     revenueCatAppUserId: revenueCatAppUserId,
+                    fallbackBundleURL: fallbackBundleURL,
                     fallbackPaywallPerTrigger: triggerViewsMap
                 )
                 

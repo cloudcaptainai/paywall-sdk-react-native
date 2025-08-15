@@ -1,6 +1,7 @@
 import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeComponent } from 'react-native';
 import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
 import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus, PaywallInfo } from './types';
+
 const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 

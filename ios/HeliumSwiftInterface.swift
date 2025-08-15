@@ -195,7 +195,8 @@ class HeliumBridge: RCTEventEmitter {
         let customUserTraits = config["customUserTraits"] as? [String: Any]
         let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
         let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
-        let fallbackBundleURLString = config["fallbackBundleURL"] as? String
+        let fallbackBundleURLString = config["fallbackBundleUrlString"] as? String
+        let fallbackBundleString = config["fallbackBundleString"] as? String
 
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
@@ -228,10 +229,20 @@ class HeliumBridge: RCTEventEmitter {
                 }
             }
 
-            // Convert string path to URL if provided
+            // Handle fallback bundle - either as URL string or JSON string
             var fallbackBundleURL: URL? = nil
+
             if let urlString = fallbackBundleURLString {
-                fallbackBundleURL = URL(fileURLWithPath: urlString)
+                fallbackBundleURL = URL(string: urlString)
+            } else if let jsonString = fallbackBundleString {
+                // expo-file-system wasn't available, write the string to a temp file
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("helium-fallback.json")
+
+                if let data = jsonString.data(using: .utf8) {
+                    try? data.write(to: tempURL)
+                    fallbackBundleURL = tempURL
+                }
             }
 
             let mainThreadTime = CFAbsoluteTimeGetCurrent() - startTime

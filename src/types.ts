@@ -39,7 +39,7 @@ export interface HeliumConfig {
 
   // Optional configurations
   fallbackView?: number;
-  fallbackBundlePath: string;
+  fallbackBundle: object;
   triggers?: string[];
   customUserId?: string;
   customAPIEndpoint?: string;

@@ -185,23 +185,26 @@ export const initialize = async (config: HeliumConfig) => {
     }
   );
 
-  let fallbackBundleURL;
-  if (config.fallbackBundlePath) {
+  let fallbackBundleUrlString;
+  let fallbackBundleString;
+  if (config.fallbackBundle) {
     try {
       const ExpoFileSystem = require('expo-file-system');
 
-      const jsonContent = await ExpoFileSystem.readAsStringAsync(
-        `${ExpoFileSystem.bundleDirectory}${config.fallbackBundlePath}`
+      const jsonContent = JSON.stringify(config.fallbackBundle);
+
+      // Write to documents directory
+      fallbackBundleUrlString = `${ExpoFileSystem.documentDirectory}helium-fallback.json`;
+      await ExpoFileSystem.writeAsStringAsync(
+        fallbackBundleUrlString,
+        jsonContent
       );
-
-      fallbackBundleURL = `${ExpoFileSystem.documentDirectory}helium-fallback.json`;
-      await ExpoFileSystem.writeAsStringAsync(fallbackBundleURL, jsonContent);
-
     } catch (error) {
+      // Fallback to string approach if expo-file-system isn't available
       console.log(
-        '[Helium] fallbackBundlePath not supported - expo-file-system not available. (This feature not supported on bare RN.)',
-        error
+        '[Helium] expo-file-system not available, attempting to pass fallback bundle as string.'
       );
+      fallbackBundleString = JSON.stringify(config.fallbackBundle);
     }
   }
 
@@ -214,7 +217,8 @@ export const initialize = async (config: HeliumConfig) => {
       customAPIEndpoint: config.customAPIEndpoint || null,
       customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits,
       revenueCatAppUserId: config.revenueCatAppUserId,
-      fallbackBundleURL: fallbackBundleURL,
+      fallbackBundleUrlString: fallbackBundleUrlString,
+      fallbackBundleString: fallbackBundleString,
     },
     {}
   );

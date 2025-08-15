@@ -51,4 +51,9 @@ RCT_EXTERN_METHOD(
     callback:(RCTResponseSenderBlock)callback
 )
 
+RCT_EXTERN_METHOD(
+    canPresentUpsell:(NSString *)trigger
+    callback:(RCTResponseSenderBlock)callback
+)
+
 @end

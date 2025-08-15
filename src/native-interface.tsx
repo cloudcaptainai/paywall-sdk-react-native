@@ -230,31 +230,32 @@ export const initialize = async (config: HeliumConfig) => {
 // Update the other methods to be synchronous
 export const presentUpsell = ({
   triggerName,
-  onFallback
+  onFallback,
 }: {
   triggerName: string;
   onFallback?: () => void;
 }) => {
-  const downloadStatus = getDownloadStatus();
-  HeliumBridge.getFetchedTriggerNames((triggerNames: string[]) => {
-    if (!triggerNames.includes(triggerName) || downloadStatus !== 'success') {
-      console.log(
-        `Helium trigger "${triggerName}" not found or download status not successful. Status:`,
-        downloadStatus
-      );
-      onFallback?.();
-      HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
-      return;
-    }
+  HeliumBridge.canPresentUpsell(
+    triggerName,
+    (canPresent: boolean, reason: string) => {
+      if (!canPresent) {
+        console.log(
+          `[Helium] Cannot present trigger "${triggerName}". Reason: ${reason}`
+        );
+        onFallback?.();
+        HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
+        return;
+      }
 
-    try {
-      HeliumBridge.presentUpsell(triggerName);
-    } catch (error) {
-      console.log('Helium present error', error);
-      onFallback?.();
-      HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
+      try {
+        HeliumBridge.presentUpsell(triggerName);
+      } catch (error) {
+        console.log('[Helium] Present error', error);
+        onFallback?.();
+        HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
+      }
     }
-  });
+  );
 };
 
 export const hideUpsell = () => {

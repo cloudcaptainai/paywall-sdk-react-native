@@ -335,4 +335,36 @@ class HeliumBridge: RCTEventEmitter {
     callback([NSNull(), paywallInfo.paywallTemplateName, paywallInfo.shouldShow])
   }
 
+  @objc
+  public func canPresentUpsell(
+      _ trigger: String,
+      callback: @escaping RCTResponseSenderBlock
+  ) {
+    // Check if paywalls are downloaded successfully
+    let paywallsLoaded = Helium.shared.paywallsLoaded()
+
+    // Check if trigger exists in fetched triggers
+    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames()
+    let hasTrigger = triggerNames.contains(trigger)
+
+    let canPresent: Bool
+    let reason: String
+
+    if paywallsLoaded && hasTrigger {
+      // Normal case - paywall is ready
+      canPresent = true
+      reason = "ready"
+    } else if HeliumFallbackViewManager.shared.getFallbackInfo(trigger: trigger) != nil {
+      // Fallback is available (via downloaded bundle)
+      canPresent = true
+      reason = "fallback_ready"
+    } else {
+      // No paywall and no fallback bundle
+      canPresent = false
+      reason = !paywallsLoaded ? "not_loaded" : "trigger_not_found"
+    }
+
+    callback([canPresent, reason])
+  }
+
 }

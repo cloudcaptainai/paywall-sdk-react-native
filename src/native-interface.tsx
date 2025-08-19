@@ -262,12 +262,14 @@ export const getPaywallInfo = async (
   });
 };
 
-export const handleDeepLink = async (url: string): Promise<boolean> => {
+export const handleDeepLink = async (url: string | null): Promise<boolean> => {
   return new Promise((resolve) => {
-    HeliumBridge.handleDeepLink(url, (handled: boolean) => {
-      console.log('[Helium] Handled deep link: ', handled);
-      resolve(handled);
-    });
+    if (url) {
+      HeliumBridge.handleDeepLink(url, (handled: boolean) => {
+        console.log('[Helium] Handled deep link:', handled);
+        resolve(handled);
+      });
+    }
   });
 };
 

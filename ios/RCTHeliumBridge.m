@@ -56,4 +56,9 @@ RCT_EXTERN_METHOD(
     callback:(RCTResponseSenderBlock)callback
 )
 
+RCT_EXTERN_METHOD(
+    handleDeepLink:(NSString *)urlString
+    callback:(RCTResponseSenderBlock)callback
+)
+
 @end

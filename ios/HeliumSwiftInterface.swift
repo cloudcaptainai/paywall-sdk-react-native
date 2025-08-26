@@ -336,6 +336,20 @@ class HeliumBridge: RCTEventEmitter {
   }
 
   @objc
+  public func handleDeepLink(
+    _ urlString: String,
+    callback: RCTResponseSenderBlock
+  ) {
+    guard let url = URL(string: urlString) else {
+      callback([false])
+      return
+    }
+
+    let result = Helium.shared.handleDeepLink(url)
+    callback([result])
+  }
+
+  @objc
   public func canPresentUpsell(
       _ trigger: String,
       callback: @escaping RCTResponseSenderBlock

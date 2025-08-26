@@ -188,14 +188,16 @@ class HeliumBridge: RCTEventEmitter {
               let viewTag = config["fallbackPaywall"] as? NSNumber else {
             return
         }
-        
+
         let triggers = config["triggers"] as? [String]
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
         let customUserTraits = config["customUserTraits"] as? [String: Any]
         let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
         let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
-        
+        let fallbackBundleURLString = config["fallbackBundleUrlString"] as? String
+        let fallbackBundleString = config["fallbackBundleString"] as? String
+
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
         )
@@ -226,9 +228,25 @@ class HeliumBridge: RCTEventEmitter {
                     }
                 }
             }
-            
+
+            // Handle fallback bundle - either as URL string or JSON string
+            var fallbackBundleURL: URL? = nil
+
+            if let urlString = fallbackBundleURLString {
+                fallbackBundleURL = URL(string: urlString)
+            } else if let jsonString = fallbackBundleString {
+                // expo-file-system wasn't available, write the string to a temp file
+                let tempURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("helium-fallback.json")
+
+                if let data = jsonString.data(using: .utf8) {
+                    try? data.write(to: tempURL)
+                    fallbackBundleURL = tempURL
+                }
+            }
+
             let mainThreadTime = CFAbsoluteTimeGetCurrent() - startTime
-            
+
             // Move initialization off main queue
             DispatchQueue.global().async {
                 let initStartTime = CFAbsoluteTimeGetCurrent()
@@ -242,6 +260,7 @@ class HeliumBridge: RCTEventEmitter {
                     customAPIEndpoint: customAPIEndpoint,
                     customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
                     revenueCatAppUserId: revenueCatAppUserId,
+                    fallbackBundleURL: fallbackBundleURL,
                     fallbackPaywallPerTrigger: triggerViewsMap
                 )
                 
@@ -328,6 +347,37 @@ class HeliumBridge: RCTEventEmitter {
 
     let result = Helium.shared.handleDeepLink(url)
     callback([result])
+  }
+
+  public func canPresentUpsell(
+      _ trigger: String,
+      callback: @escaping RCTResponseSenderBlock
+  ) {
+    // Check if paywalls are downloaded successfully
+    let paywallsLoaded = Helium.shared.paywallsLoaded()
+
+    // Check if trigger exists in fetched triggers
+    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames()
+    let hasTrigger = triggerNames.contains(trigger)
+
+    let canPresent: Bool
+    let reason: String
+
+    if paywallsLoaded && hasTrigger {
+      // Normal case - paywall is ready
+      canPresent = true
+      reason = "ready"
+    } else if HeliumFallbackViewManager.shared.getFallbackInfo(trigger: trigger) != nil {
+      // Fallback is available (via downloaded bundle)
+      canPresent = true
+      reason = "fallback_ready"
+    } else {
+      // No paywall and no fallback bundle
+      canPresent = false
+      reason = !paywallsLoaded ? "download status - \(Helium.shared.getDownloadStatus().rawValue)" : "trigger_not_found"
+    }
+
+    callback([canPresent, reason])
   }
 
 }

@@ -52,6 +52,11 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+    canPresentUpsell:(NSString *)trigger
+    callback:(RCTResponseSenderBlock)callback
+)
+
+RCT_EXTERN_METHOD(
     handleDeepLink:(NSString *)urlString
     callback:(RCTResponseSenderBlock)callback
 )

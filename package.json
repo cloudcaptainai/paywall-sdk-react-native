@@ -97,11 +97,15 @@
     "@types/react": "^18.2.44"
   },
   "peerDependencies": {
+    "expo-file-system": "*",
     "react": ">=18.2.0",
     "react-native": ">=0.71.7",
     "react-native-purchases": ">=5.1.0"
   },
   "peerDependenciesMeta": {
+    "expo-file-system": {
+      "optional": true
+    },
     "react-native-purchases": {
       "optional": true
     }

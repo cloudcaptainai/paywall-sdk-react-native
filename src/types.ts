@@ -36,9 +36,10 @@ export interface HeliumConfig {
   purchaseConfig: HeliumPurchaseConfig;
   /** Callback for receiving all Helium paywall events. */
   onHeliumPaywallEvent: (event: any) => void; // Still mandatory
-  
+
   // Optional configurations
-  fallbackView?: number; 
+  fallbackView?: number;
+  fallbackBundle?: object;
   triggers?: string[];
   customUserId?: string;
   customAPIEndpoint?: string;

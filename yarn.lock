@@ -3835,10 +3835,13 @@ __metadata:
     turbo: ^1.10.7
     typescript: ^5.2.2
   peerDependencies:
+    expo-file-system: "*"
     react: ">=18.2.0"
     react-native: ">=0.71.7"
     react-native-purchases: ">=5.1.0"
   peerDependenciesMeta:
+    expo-file-system:
+      optional: true
     react-native-purchases:
       optional: true
   languageName: unknown

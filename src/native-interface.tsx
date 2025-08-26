@@ -262,6 +262,17 @@ export const getPaywallInfo = async (
   });
 };
 
+export const handleDeepLink = async (url: string | null): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (url) {
+      HeliumBridge.handleDeepLink(url, (handled: boolean) => {
+        console.log('[Helium] Handled deep link:', handled);
+        resolve(handled);
+      });
+    }
+  });
+};
+
 // Update the UpsellView component to handle the style prop
 export const UpsellView: React.FC<HeliumUpsellViewProps & {
   fallbackViewProps?: Record<string, any>;

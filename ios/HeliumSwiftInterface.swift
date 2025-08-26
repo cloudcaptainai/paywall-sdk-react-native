@@ -349,6 +349,7 @@ class HeliumBridge: RCTEventEmitter {
     callback([result])
   }
 
+  @objc
   public func canPresentUpsell(
       _ trigger: String,
       callback: @escaping RCTResponseSenderBlock

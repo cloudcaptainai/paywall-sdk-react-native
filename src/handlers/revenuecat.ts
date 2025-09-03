@@ -34,13 +34,13 @@ export class RevenueCatHeliumHandler {
         this.initializationPromise = (async () => {
             try {
                 const offerings = await Purchases.getOfferings();
-                if (offerings.current?.availablePackages) {
-                    offerings.current.availablePackages.forEach((pkg: PurchasesPackage) => {
-                        if (pkg.product?.identifier) {
-                            this.productIdToPackageMapping[pkg.product.identifier] = pkg;
-                        }
-                    });
-                } else {
+                const allOfferings = offerings.all;
+                for (const offering of Object.values(allOfferings)) {
+                  offering.availablePackages.forEach((pkg: PurchasesPackage) => {
+                    if (pkg.product?.identifier) {
+                      this.productIdToPackageMapping[pkg.product.identifier] = pkg;
+                    }
+                  });
                 }
                 this.isMappingInitialized = true;
             } catch (error) {

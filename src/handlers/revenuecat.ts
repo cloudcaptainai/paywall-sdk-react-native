@@ -1,6 +1,15 @@
-import Purchases, { PURCHASES_ERROR_CODE } from 'react-native-purchases';
+import Purchases, {
+  PURCHASES_ERROR_CODE,
+  type PurchasesStoreProduct,
+} from 'react-native-purchases';
 import type { HeliumPurchaseConfig, HeliumPurchaseResult } from '../types';
-import type { PurchasesError, PurchasesPackage, CustomerInfoUpdateListener, CustomerInfo, PurchasesEntitlementInfo } from 'react-native-purchases';
+import type {
+  PurchasesError,
+  PurchasesPackage,
+  CustomerInfoUpdateListener,
+  CustomerInfo,
+  PurchasesEntitlementInfo,
+} from 'react-native-purchases';
 
 // Rename the factory function
 export function createRevenueCatPurchaseConfig(config?: {
@@ -19,6 +28,8 @@ export class RevenueCatHeliumHandler {
     private isMappingInitialized: boolean = false;
     private initializationPromise: Promise<void> | null = null;
 
+    private rcProductToPackageMapping: Record<string, PurchasesStoreProduct> = {};
+
     constructor(apiKey?: string) {
         if (apiKey) {
             Purchases.configure({ apiKey });
@@ -34,13 +45,13 @@ export class RevenueCatHeliumHandler {
         this.initializationPromise = (async () => {
             try {
                 const offerings = await Purchases.getOfferings();
-                if (offerings.current?.availablePackages) {
-                    offerings.current.availablePackages.forEach((pkg: PurchasesPackage) => {
-                        if (pkg.product?.identifier) {
-                            this.productIdToPackageMapping[pkg.product.identifier] = pkg;
-                        }
-                    });
-                } else {
+                const allOfferings = offerings.all;
+                for (const offering of Object.values(allOfferings)) {
+                  offering.availablePackages.forEach((pkg: PurchasesPackage) => {
+                    if (pkg.product?.identifier) {
+                      this.productIdToPackageMapping[pkg.product.identifier] = pkg;
+                    }
+                  });
                 }
                 this.isMappingInitialized = true;
             } catch (error) {
@@ -64,12 +75,33 @@ export class RevenueCatHeliumHandler {
         await this.ensureMappingInitialized();
 
         const pkg: PurchasesPackage | undefined = this.productIdToPackageMapping[productId];
+        let rcProduct: PurchasesStoreProduct | undefined;
         if (!pkg) {
-            return { status: 'failed', error: `RevenueCat Package not found for ID: ${productId}` };
+            // Use cached if available
+            rcProduct = this.rcProductToPackageMapping[productId];
+            if (!rcProduct) {
+                // Try to retrieve now
+                try {
+                    const rcProducts = await Purchases.getProducts([productId]);
+                    rcProduct = rcProducts.length > 0 ? rcProducts[0] : undefined;
+                } catch {
+                    // 'failed' status will be returned
+                }
+                if (rcProduct) {
+                    this.rcProductToPackageMapping[productId] = rcProduct;
+                }
+            }
         }
 
         try {
-            const { customerInfo } = await Purchases.purchasePackage(pkg);
+            let customerInfo: CustomerInfo;
+            if (pkg) {
+                customerInfo = (await Purchases.purchasePackage(pkg)).customerInfo;
+            } else if (rcProduct) {
+                customerInfo = (await Purchases.purchaseStoreProduct(rcProduct)).customerInfo;
+            } else {
+                return { status: 'failed', error: `RevenueCat Product/Package not found for ID: ${productId}` };
+            }
             const isActive = this.isProductActive(customerInfo, productId);
             if (isActive) {
                 return { status: 'purchased' };

@@ -10,7 +10,6 @@ import Helium
 import SwiftUI
 import UIKit
 import React
-import AnyCodable
 import Combine
 
 struct UIViewWrapper: UIViewRepresentable, View {

@@ -1,6 +1,26 @@
-import { findNodeHandle, NativeModules, View, NativeEventEmitter, requireNativeComponent } from 'react-native';
-import React, { createRef, useEffect, useState, createContext, useContext } from 'react';
-import type { HeliumConfig, HeliumUpsellViewProps, HeliumDownloadStatus, PaywallInfo } from './types';
+import {
+  findNodeHandle,
+  NativeModules,
+  View,
+  NativeEventEmitter,
+  requireNativeComponent,
+} from 'react-native';
+import React, {
+  createRef,
+  useEffect,
+  useState,
+  createContext,
+  useContext,
+} from 'react';
+import type {
+  HeliumConfig,
+  HeliumUpsellViewProps,
+  HeliumDownloadStatus,
+  PaywallInfo,
+  PresentUpsellParams,
+  PaywallEventHandlers,
+  HeliumPaywallEvent,
+} from './types';
 
 const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
@@ -92,10 +112,10 @@ export const HeliumProvider = ({ children, fallbackView }: HeliumProviderProps) 
 
   return (
     <HeliumContext.Provider value={{ downloadStatus, setDownloadStatus }}>
-      <View 
+      <View
         ref={fallbackRef}
         collapsable={false}
-        style={{ 
+        style={{
           display: 'none'
         }}
       >
@@ -134,7 +154,7 @@ export const initialize = async (config: HeliumConfig) => {
   // Set up event listeners
   heliumEventEmitter.addListener(
     'helium_paywall_event',
-    (event: any) => {
+    (event: HeliumPaywallEvent) => {
       // Handle download status events
       if (event.type === 'paywallsDownloadSuccess') {
         updateDownloadStatus('success');
@@ -158,6 +178,14 @@ export const initialize = async (config: HeliumConfig) => {
 
       // Forward all events to the callback provided in config
       config.onHeliumPaywallEvent(event);
+    }
+  );
+
+  // Set up paywall event handlers listener
+  heliumEventEmitter.addListener(
+    'paywallEventHandlers',
+    (event: HeliumPaywallEvent) => {
+      callPaywallEventHandlers(event);
     }
   );
 
@@ -220,22 +248,23 @@ export const initialize = async (config: HeliumConfig) => {
       revenueCatAppUserId: config.revenueCatAppUserId,
       fallbackBundleUrlString: fallbackBundleUrlString,
       fallbackBundleString: fallbackBundleString,
+      paywallLoadingConfig: config.paywallLoadingConfig,
     },
     {}
   );
-  
+
   // Mark as initialized after successful initialization
   isInitialized = true;
 };
 
-// Update the other methods to be synchronous
+let paywallEventHandlers: PaywallEventHandlers | undefined;
+let presentOnFallback: (() => void) | undefined;
 export const presentUpsell = ({
   triggerName,
   onFallback,
-}: {
-  triggerName: string;
-  onFallback?: () => void;
-}) => {
+  eventHandlers,
+  customPaywallTraits,
+}: PresentUpsellParams) => {
   HeliumBridge.canPresentUpsell(
     triggerName,
     (canPresent: boolean, reason: string) => {
@@ -249,15 +278,73 @@ export const presentUpsell = ({
       }
 
       try {
-        HeliumBridge.presentUpsell(triggerName);
+        paywallEventHandlers = eventHandlers;
+        presentOnFallback = onFallback;
+        HeliumBridge.presentUpsell(triggerName, customPaywallTraits || null);
       } catch (error) {
         console.log('[Helium] Present error', error);
+        paywallEventHandlers = undefined;
+        presentOnFallback = undefined;
         onFallback?.();
         HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
       }
     }
   );
 };
+
+function callPaywallEventHandlers(event: HeliumPaywallEvent) {
+  if (paywallEventHandlers) {
+    switch (event.type) {
+      case 'paywallOpen':
+        paywallEventHandlers?.onOpen?.({
+          type: 'paywallOpen',
+          triggerName: event.triggerName ?? 'unknown',
+          paywallName: event.paywallName ?? 'unknown',
+          isSecondTry: event.isSecondTry ?? false,
+          viewType: 'presented',
+        });
+        break;
+      case 'paywallClose':
+        paywallEventHandlers?.onClose?.({
+          type: 'paywallClose',
+          triggerName: event.triggerName ?? 'unknown',
+          paywallName: event.paywallName ?? 'unknown',
+          isSecondTry: event.isSecondTry ?? false,
+        });
+        if (!event.isSecondTry) {
+          paywallEventHandlers = undefined;
+        }
+        presentOnFallback = undefined;
+        break;
+      case 'paywallDismissed':
+        paywallEventHandlers?.onDismissed?.({
+          type: 'paywallDismissed',
+          triggerName: event.triggerName ?? 'unknown',
+          paywallName: event.paywallName ?? 'unknown',
+          isSecondTry: event.isSecondTry ?? false,
+        });
+        break;
+      case 'purchaseSucceeded':
+        paywallEventHandlers?.onPurchaseSucceeded?.({
+          type: 'purchaseSucceeded',
+          productId: event.productKey ?? 'unknown',
+          triggerName: event.triggerName ?? 'unknown',
+          paywallName: event.paywallName ?? 'unknown',
+          isSecondTry: event.isSecondTry ?? false,
+        });
+        break;
+      case 'paywallSkipped':
+        paywallEventHandlers = undefined;
+        presentOnFallback = undefined;
+        break;
+      case 'paywallOpenFailed':
+        paywallEventHandlers = undefined;
+        presentOnFallback?.();
+        presentOnFallback = undefined;
+        break;
+    }
+  }
+}
 
 export const hideUpsell = () => {
   HeliumBridge.hideUpsell();
@@ -332,10 +419,10 @@ export const UpsellView: React.FC<HeliumUpsellViewProps & {
         </View>
       );
     }
-    
+
     return null;
   }
-  
+
   // Use NativeHeliumUpsellView directly
   return <NativeHeliumUpsellView trigger={trigger} />;
 };
@@ -343,4 +430,4 @@ export const UpsellView: React.FC<HeliumUpsellViewProps & {
 export const HELIUM_CTA_NAMES = {
   SCHEDULE_CALL: 'schedule_call',
   SUBSCRIBE_BUTTON: 'subscribe_button',
-}
+};

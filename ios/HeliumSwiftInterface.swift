@@ -139,13 +139,20 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
       ))
   }
     
-    func onHeliumPaywallEvent(event: HeliumPaywallEvent) {
-          let eventDict = event.toDictionary()
-          bridge?.sendEvent(
-              withName: "helium_paywall_event",
-              body: eventDict
-          )
-      }
+    func onPaywallEvent(_ event: any PaywallEvent) {
+        var eventDict = event.toDictionary()
+        // Add deprecated fields for backwards compatibility
+        if let paywallName = eventDict["paywallName"] {
+            eventDict["paywallTemplateName"] = paywallName
+        }
+        if let error = eventDict["error"] {
+            eventDict["errorDescription"] = error
+        }
+        bridge?.sendEvent(
+            withName: "helium_paywall_event",
+            body: eventDict
+        )
+    }
     
     func getCustomVariableValues() -> [String: Any?] {
         return [:];
@@ -169,7 +176,8 @@ class HeliumBridge: RCTEventEmitter {
            "helium_make_purchase",
            "helium_restore_purchases",
            "helium_download_state_changed",
-           "helium_fallback_visibility"
+           "helium_fallback_visibility",
+           "paywallEventHandlers"
        ]
    }
    
@@ -196,6 +204,22 @@ class HeliumBridge: RCTEventEmitter {
         let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
         let fallbackBundleURLString = config["fallbackBundleUrlString"] as? String
         let fallbackBundleString = config["fallbackBundleString"] as? String
+
+        let paywallLoadingConfig = config["paywallLoadingConfig"] as? [String: Any]
+        let useLoadingState = paywallLoadingConfig?["useLoadingState"] as? Bool ?? true
+        let loadingBudget = paywallLoadingConfig?["loadingBudget"] as? TimeInterval ?? 2.0
+
+        var perTriggerLoadingConfig: [String: TriggerLoadingConfig]? = nil
+        if let perTriggerDict = paywallLoadingConfig?["perTriggerLoadingConfig"] as? [String: [String: Any]] {
+          var triggerConfigs: [String: TriggerLoadingConfig] = [:]
+          for (trigger, config) in perTriggerDict {
+            triggerConfigs[trigger] = TriggerLoadingConfig(
+              useLoadingState: config["useLoadingState"] as? Bool,
+              loadingBudget: config["loadingBudget"] as? TimeInterval
+            )
+          }
+          perTriggerLoadingConfig = triggerConfigs
+        }
 
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
@@ -253,14 +277,17 @@ class HeliumBridge: RCTEventEmitter {
                 Helium.shared.initialize(
                     apiKey: apiKey,
                     heliumPaywallDelegate: self.bridgingDelegate!,
-                    fallbackPaywall: wrappedView,
-                    triggers: triggers,
+                    fallbackConfig: HeliumFallbackConfig.withMultipleFallbacks(
+                        fallbackView: wrappedView,
+                        fallbackBundle: fallbackBundleURL,
+                        useLoadingState: useLoadingState,
+                        loadingBudget: loadingBudget,
+                        perTriggerLoadingConfig: perTriggerLoadingConfig
+                    ),
                     customUserId: customUserId,
                     customAPIEndpoint: customAPIEndpoint,
                     customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
-                    revenueCatAppUserId: revenueCatAppUserId,
-                    fallbackBundleURL: fallbackBundleURL,
-                    fallbackPaywallPerTrigger: triggerViewsMap
+                    revenueCatAppUserId: revenueCatAppUserId
                 )
                 
                 let initTime = CFAbsoluteTimeGetCurrent() - initStartTime
@@ -297,9 +324,27 @@ class HeliumBridge: RCTEventEmitter {
 
   @objc
   public func presentUpsell(
-    _ trigger: String
+    _ trigger: String,
+    customPaywallTraits: [String: Any]?
   ) {
-    Helium.shared.presentUpsell(trigger: trigger);
+    Helium.shared.presentUpsell(
+        trigger: trigger,
+        eventHandlers: PaywallEventHandlers.withHandlers(
+            onOpen: { [weak self] event in
+                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            },
+            onClose: { [weak self] event in
+                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            },
+            onDismissed: { [weak self] event in
+                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            },
+            onPurchaseSucceeded: { [weak self] event in
+                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            }
+        ),
+        customPaywallTraits: customPaywallTraits
+    );
   }
     
   @objc
@@ -363,10 +408,17 @@ class HeliumBridge: RCTEventEmitter {
     let canPresent: Bool
     let reason: String
 
+    let useLoading = Helium.shared.loadingStateEnabledFor(trigger: trigger)
+    let downloadInProgress = Helium.shared.getDownloadStatus() == .inProgress
+
     if paywallsLoaded && hasTrigger {
       // Normal case - paywall is ready
       canPresent = true
       reason = "ready"
+    } else if downloadInProgress && useLoading {
+      // Loading case - paywall still downloading
+      canPresent = true
+      reason = "loading"
     } else if HeliumFallbackViewManager.shared.getFallbackInfo(trigger: trigger) != nil {
       // Fallback is available (via downloaded bundle)
       canPresent = true

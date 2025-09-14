@@ -18,4 +18,13 @@ export type {
   HeliumTransactionStatus,
   HeliumConfig,
   HeliumUpsellViewProps,
+  HeliumPaywallLoadingConfig,
+  TriggerLoadingConfig,
+  PaywallEventHandlers,
+  PaywallOpenEvent,
+  PaywallCloseEvent,
+  PaywallDismissedEvent,
+  PurchaseSucceededEvent,
+  HeliumPaywallEvent,
+  PresentUpsellParams,
 } from './types';

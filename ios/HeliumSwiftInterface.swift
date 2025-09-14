@@ -191,17 +191,14 @@ class HeliumBridge: RCTEventEmitter {
         _ config: NSDictionary,
         customVariableValues: NSDictionary
     ) {
-        guard let apiKey = config["apiKey"] as? String,
-              let viewTag = config["fallbackPaywall"] as? NSNumber else {
+        guard let apiKey = config["apiKey"] as? String else {
             return
         }
 
-        let triggers = config["triggers"] as? [String]
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
         let customUserTraits = config["customUserTraits"] as? [String: Any]
         let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
-        let fallbackPaywallPerTriggerTags = config["fallbackPaywallPerTrigger"] as? [String: NSNumber]
         let fallbackBundleURLString = config["fallbackBundleUrlString"] as? String
         let fallbackBundleString = config["fallbackBundleString"] as? String
 
@@ -225,74 +222,36 @@ class HeliumBridge: RCTEventEmitter {
             bridge: self
         )
 
-        // Always do view lookup on main queue
-        DispatchQueue.main.async {
-            let startTime = CFAbsoluteTimeGetCurrent()
-            
-            guard let bridge = self.bridge,
-                  let fallbackPaywall = bridge.uiManager.view(forReactTag: viewTag) else {
-                return
-            }
-            
-            
-            let wrappedView = UIViewWrapper(view: fallbackPaywall)
-            
-            // Process fallbackPaywallPerTrigger if provided
-            var triggerViewsMap: [String: any View]? = nil
-            
-            if let fallbackPaywallPerTriggerTags = fallbackPaywallPerTriggerTags {
-                triggerViewsMap = [:]
-                
-                for (trigger, tag) in fallbackPaywallPerTriggerTags {
-                    if let view = bridge.uiManager.view(forReactTag: tag) {
-                        // Initially hide trigger-specific fallback views
-                        triggerViewsMap?[trigger] = UIViewWrapper(view: view)
-                    } else {
-                    }
-                }
-            }
+        // Handle fallback bundle - either as URL string or JSON string
+        var fallbackBundleURL: URL? = nil
 
-            // Handle fallback bundle - either as URL string or JSON string
-            var fallbackBundleURL: URL? = nil
+        if let urlString = fallbackBundleURLString {
+            fallbackBundleURL = URL(string: urlString)
+        } else if let jsonString = fallbackBundleString {
+            // expo-file-system wasn't available, write the string to a temp file
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("helium-fallback.json")
 
-            if let urlString = fallbackBundleURLString {
-                fallbackBundleURL = URL(string: urlString)
-            } else if let jsonString = fallbackBundleString {
-                // expo-file-system wasn't available, write the string to a temp file
-                let tempURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("helium-fallback.json")
-
-                if let data = jsonString.data(using: .utf8) {
-                    try? data.write(to: tempURL)
-                    fallbackBundleURL = tempURL
-                }
-            }
-
-            let mainThreadTime = CFAbsoluteTimeGetCurrent() - startTime
-
-            // Move initialization off main queue
-            DispatchQueue.global().async {
-                let initStartTime = CFAbsoluteTimeGetCurrent()
-                
-                Helium.shared.initialize(
-                    apiKey: apiKey,
-                    heliumPaywallDelegate: self.bridgingDelegate!,
-                    fallbackConfig: HeliumFallbackConfig.withMultipleFallbacks(
-                        fallbackView: wrappedView,
-                        fallbackBundle: fallbackBundleURL,
-                        useLoadingState: useLoadingState,
-                        loadingBudget: loadingBudget,
-                        perTriggerLoadingConfig: perTriggerLoadingConfig
-                    ),
-                    customUserId: customUserId,
-                    customAPIEndpoint: customAPIEndpoint,
-                    customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
-                    revenueCatAppUserId: revenueCatAppUserId
-                )
-                
-                let initTime = CFAbsoluteTimeGetCurrent() - initStartTime
+            if let data = jsonString.data(using: .utf8) {
+                try? data.write(to: tempURL)
+                fallbackBundleURL = tempURL
             }
         }
+
+        Helium.shared.initialize(
+            apiKey: apiKey,
+            heliumPaywallDelegate: self.bridgingDelegate!,
+            fallbackConfig: HeliumFallbackConfig.withMultipleFallbacks(
+                fallbackBundle: fallbackBundleURL,
+                useLoadingState: useLoadingState,
+                loadingBudget: loadingBudget,
+                perTriggerLoadingConfig: perTriggerLoadingConfig
+            ),
+            customUserId: customUserId,
+            customAPIEndpoint: customAPIEndpoint,
+            customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
+            revenueCatAppUserId: revenueCatAppUserId
+        )
     }
   
   @objc

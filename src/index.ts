@@ -8,7 +8,6 @@ export {
   hideAllUpsells,
   getPaywallInfo,
   handleDeepLink,
-  UpsellView,
   HELIUM_CTA_NAMES,
   useHelium,
   NativeHeliumUpsellView,

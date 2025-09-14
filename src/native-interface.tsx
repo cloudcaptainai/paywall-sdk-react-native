@@ -1,17 +1,9 @@
 import {
-  findNodeHandle,
   NativeModules,
-  View,
   NativeEventEmitter,
   requireNativeComponent,
 } from 'react-native';
-import React, {
-  createRef,
-  useEffect,
-  useState,
-  createContext,
-  useContext,
-} from 'react';
+import React, { useEffect, useState, createContext, useContext } from 'react';
 import type {
   HeliumConfig,
   HeliumUpsellViewProps,
@@ -27,7 +19,8 @@ const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 // Register the native component once at module level
 // This ensures it's only registered once, even during hot reloading
-export const NativeHeliumUpsellView = requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
+export const NativeHeliumUpsellView =
+  requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
 
 let isProviderMounted = false;
 // Add a flag to track if initialization has occurred
@@ -58,7 +51,8 @@ interface HeliumContextType {
 const HeliumContext = createContext<HeliumContextType | undefined>(undefined);
 
 // Update the setter ref to also update global status
-let setDownloadStatusRef: ((status: HeliumDownloadStatus) => void) | null = null;
+let setDownloadStatusRef: ((status: HeliumDownloadStatus) => void) | null =
+  null;
 const updateDownloadStatus = (status: HeliumDownloadStatus) => {
   globalDownloadStatus = status;
   setDownloadStatusRef?.(status);
@@ -75,30 +69,18 @@ export const useHelium = () => {
 
 interface HeliumProviderProps {
   children: React.ReactNode;
-  fallbackView?: React.ComponentType;
 }
 
-// Create a ref to store the fallback view reference
-const fallbackRef = createRef<View>();
-// Store a reference to the fallback view component
-let FallbackViewComponent: React.ComponentType | null = null;
-
 // Provider component to be rendered at the app root
-export const HeliumProvider = ({ children, fallbackView }: HeliumProviderProps) => {
-  // TODO - deprecate fallbackView (and maybe HeliumProvider too?)
-  if (fallbackView) {
-    console.warn('HeliumProvider: fallbackView is deprecated. Use onFallback passed to presentUpsell instead.');
-  }
-  const FallbackView = (() => null);
+export const HeliumProvider = ({ children }: HeliumProviderProps) => {
   // Add state for download status
-  const [downloadStatus, setDownloadStatus] = useState<HeliumDownloadStatus>('notStarted');
+  const [downloadStatus, setDownloadStatus] =
+    useState<HeliumDownloadStatus>('notStarted');
 
   // Store the setter in the ref so it can be accessed outside of components
   useEffect(() => {
     setDownloadStatusRef = setDownloadStatus;
-    // Store the fallback view component for later use
-    FallbackViewComponent = FallbackView;
-  }, [setDownloadStatus, FallbackView]);
+  }, [setDownloadStatus]);
 
   useEffect(() => {
     isProviderMounted = true;
@@ -112,15 +94,6 @@ export const HeliumProvider = ({ children, fallbackView }: HeliumProviderProps) 
 
   return (
     <HeliumContext.Provider value={{ downloadStatus, setDownloadStatus }}>
-      <View
-        ref={fallbackRef}
-        collapsable={false}
-        style={{
-          display: 'none'
-        }}
-      >
-        <FallbackView />
-      </View>
       {children}
     </HeliumContext.Provider>
   );
@@ -138,11 +111,6 @@ export const initialize = async (config: HeliumConfig) => {
     await providerMountedPromise;
   }
 
-  const viewTag = findNodeHandle(fallbackRef.current);
-  if (!viewTag) {
-    throw new Error('Failed to get fallback view reference. Make sure HeliumProvider is mounted with a fallback view.');
-  }
-
   const purchaseHandler = {
     makePurchase: config.purchaseConfig.makePurchase,
     restorePurchases: config.purchaseConfig.restorePurchases,
@@ -150,6 +118,12 @@ export const initialize = async (config: HeliumConfig) => {
 
   // Update download status to inProgress
   updateDownloadStatus('inProgress');
+
+  // Ensure these don't get added more than once
+  heliumEventEmitter.removeAllListeners('helium_paywall_event');
+  heliumEventEmitter.removeAllListeners('paywallEventHandlers');
+  heliumEventEmitter.removeAllListeners('helium_make_purchase');
+  heliumEventEmitter.removeAllListeners('helium_restore_purchases');
 
   // Set up event listeners
   heliumEventEmitter.addListener(
@@ -160,20 +134,6 @@ export const initialize = async (config: HeliumConfig) => {
         updateDownloadStatus('success');
       } else if (event.type === 'paywallsDownloadError') {
         updateDownloadStatus('failed');
-      }
-      // Handle fallback view visibility
-      else if (event.type === 'paywallOpen' && event.paywallTemplateName === 'Fallback') {
-        if (fallbackRef.current) {
-          fallbackRef.current.setNativeProps({
-            style: { display: 'flex' }
-          });
-        }
-      } else if (event.type === 'paywallClose' && event.paywallTemplateName === 'Fallback') {
-        if (fallbackRef.current) {
-          fallbackRef.current.setNativeProps({
-            style: { display: 'none' }
-          });
-        }
       }
 
       // Forward all events to the callback provided in config
@@ -197,7 +157,7 @@ export const initialize = async (config: HeliumConfig) => {
       HeliumBridge.handlePurchaseResponse({
         transactionId: event.transactionId,
         status: result.status,
-        error: result.error
+        error: result.error,
       });
     }
   );
@@ -209,7 +169,7 @@ export const initialize = async (config: HeliumConfig) => {
       const success = await purchaseHandler.restorePurchases();
       HeliumBridge.handleRestoreResponse({
         transactionId: event.transactionId,
-        status: success ? 'restored' : 'failed'
+        status: success ? 'restored' : 'failed',
       });
     }
   );
@@ -240,11 +200,10 @@ export const initialize = async (config: HeliumConfig) => {
   HeliumBridge.initialize(
     {
       apiKey: config.apiKey,
-      fallbackPaywall: viewTag,
-      triggers: config.triggers || [],
       customUserId: config.customUserId || null,
       customAPIEndpoint: config.customAPIEndpoint || null,
-      customUserTraits: config.customUserTraits == null ? {} : config.customUserTraits,
+      customUserTraits:
+        config.customUserTraits == null ? {} : config.customUserTraits,
       revenueCatAppUserId: config.revenueCatAppUserId,
       fallbackBundleUrlString: fallbackBundleUrlString,
       fallbackBundleString: fallbackBundleString,
@@ -384,47 +343,6 @@ export const handleDeepLink = async (url: string | null): Promise<boolean> => {
       });
     }
   });
-};
-
-// Update the UpsellView component to handle the style prop
-export const UpsellView: React.FC<HeliumUpsellViewProps & {
-  fallbackViewProps?: Record<string, any>;
-  fallbackViewWrapperStyles?: Record<string, any>;
-}> = ({ trigger, fallbackViewProps, fallbackViewWrapperStyles }) => {
-  const { downloadStatus } = useHelium();
-
-  const showFallback = downloadStatus === 'notStarted' ||
-    downloadStatus === 'inProgress' ||
-    downloadStatus === 'failed';
-
-  useEffect(() => {
-    if (showFallback && FallbackViewComponent) {
-      HeliumBridge.fallbackOpenOrCloseEvent(trigger, true, 'embedded');
-    }
-    return () => {
-      if (showFallback && FallbackViewComponent) {
-        HeliumBridge.fallbackOpenOrCloseEvent(trigger, false, 'embedded');
-      }
-    };
-  }, [showFallback, trigger]);
-
-  // If download status is notStarted or inProgress, we haven't fully initialized yet
-  // In this case, we should render the fallback view
-  if (showFallback) {
-    // If we have a fallback view component, render it
-    if (FallbackViewComponent) {
-      return (
-        <View style={fallbackViewWrapperStyles}>
-          <FallbackViewComponent {...fallbackViewProps} />
-        </View>
-      );
-    }
-
-    return null;
-  }
-
-  // Use NativeHeliumUpsellView directly
-  return <NativeHeliumUpsellView trigger={trigger} />;
 };
 
 export const HELIUM_CTA_NAMES = {

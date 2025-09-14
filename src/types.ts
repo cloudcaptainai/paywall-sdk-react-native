@@ -170,12 +170,10 @@ export interface HeliumConfig {
   onHeliumPaywallEvent: (event: HeliumPaywallEvent) => void;
 
   // Optional configurations
-  fallbackView?: number;
   /** Fallback bundle in the rare situation that paywall is not ready to be shown. Highly recommended. See docs at https://docs.tryhelium.com/guides/fallback-bundle#react-native */
   fallbackBundle?: object;
   /** Configure loading behavior for paywalls that are mid-download. */
   paywallLoadingConfig?: HeliumPaywallLoadingConfig;
-  triggers?: string[];
   customUserId?: string;
   customAPIEndpoint?: string;
   customUserTraits?: Record<string, any>;

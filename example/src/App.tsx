@@ -36,7 +36,7 @@ function App(): React.JSX.Element {
   useEffect(() => {
     initialize(handlers, {});
     Purchases.configure({
-      apiKey: 'appl_ZLwXiFzGDqgMWuAEAahrdMnnpHi',
+      apiKey: 'rc_id',
     });
   }, []);
 

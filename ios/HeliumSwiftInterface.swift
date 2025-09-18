@@ -138,8 +138,8 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
           error: nil
       ))
   }
-    
-    func onPaywallEvent(_ event: any PaywallEvent) {
+
+    func onPaywallEvent(_ event: any HeliumEvent) {
         var eventDict = event.toDictionary()
         // Add deprecated fields for backwards compatibility
         if let paywallName = eventDict["paywallName"] {
@@ -147,6 +147,9 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
         }
         if let error = eventDict["error"] {
             eventDict["errorDescription"] = error
+        }
+        if let productId = eventDict["productId"] {
+            eventDict["productKey"] = productId
         }
         bridge?.sendEvent(
             withName: "helium_paywall_event",

@@ -1,7 +1,6 @@
 export { createCustomPurchaseConfig } from './types';
 
 export {
-  HeliumProvider,
   initialize,
   presentUpsell,
   hideUpsell,
@@ -9,7 +8,6 @@ export {
   getPaywallInfo,
   handleDeepLink,
   HELIUM_CTA_NAMES,
-  useHelium,
   NativeHeliumUpsellView,
 } from './native-interface';
 

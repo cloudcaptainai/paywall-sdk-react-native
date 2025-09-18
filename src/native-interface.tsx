@@ -3,7 +3,6 @@ import {
   NativeEventEmitter,
   requireNativeComponent,
 } from 'react-native';
-import React, { useEffect, useState, createContext, useContext } from 'react';
 import type {
   HeliumConfig,
   HeliumUpsellViewProps,
@@ -18,97 +17,24 @@ const { HeliumBridge } = NativeModules;
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 // Register the native component once at module level
-// This ensures it's only registered once, even during hot reloading
 export const NativeHeliumUpsellView =
   requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
 
-let isProviderMounted = false;
 // Add a flag to track if initialization has occurred
 let isInitialized = false;
-// Add a promise to track when the provider is mounted
-let providerMountedPromise: Promise<void>;
-let resolveProviderMounted: () => void;
-
-// Initialize the promise
-providerMountedPromise = new Promise<void>((resolve) => {
-  resolveProviderMounted = resolve;
-  // If provider is already mounted, resolve immediately
-  if (isProviderMounted) {
-    resolve();
-  }
-});
-
 // Add module-level download status tracking
 let globalDownloadStatus: HeliumDownloadStatus = 'notStarted';
 export const getDownloadStatus = () => globalDownloadStatus;
 
-// Create a context for the download status
-interface HeliumContextType {
-  downloadStatus: HeliumDownloadStatus;
-  setDownloadStatus: (status: HeliumDownloadStatus) => void;
-}
-
-const HeliumContext = createContext<HeliumContextType | undefined>(undefined);
-
-// Update the setter ref to also update global status
-let setDownloadStatusRef: ((status: HeliumDownloadStatus) => void) | null =
-  null;
 const updateDownloadStatus = (status: HeliumDownloadStatus) => {
   globalDownloadStatus = status;
-  setDownloadStatusRef?.(status);
 };
 
-// Hook to use the Helium context
-export const useHelium = () => {
-  const context = useContext(HeliumContext);
-  if (!context) {
-    throw new Error('useHelium must be used within a HeliumProvider');
-  }
-  return context;
-};
-
-interface HeliumProviderProps {
-  children: React.ReactNode;
-}
-
-// Provider component to be rendered at the app root
-export const HeliumProvider = ({ children }: HeliumProviderProps) => {
-  // Add state for download status
-  const [downloadStatus, setDownloadStatus] =
-    useState<HeliumDownloadStatus>('notStarted');
-
-  // Store the setter in the ref so it can be accessed outside of components
-  useEffect(() => {
-    setDownloadStatusRef = setDownloadStatus;
-  }, [setDownloadStatus]);
-
-  useEffect(() => {
-    isProviderMounted = true;
-    // Resolve the promise when the provider is mounted
-    resolveProviderMounted();
-    return () => {
-      isProviderMounted = false;
-      setDownloadStatusRef = null;
-    };
-  }, []);
-
-  return (
-    <HeliumContext.Provider value={{ downloadStatus, setDownloadStatus }}>
-      {children}
-    </HeliumContext.Provider>
-  );
-};
-
-// Update initialize to accept full config
 export const initialize = async (config: HeliumConfig) => {
   // Early return if already initialized
   if (isInitialized) {
+    console.log('[Helium] Already initialized, skipping...');
     return;
-  }
-
-  // Wait for the provider to be mounted if it's not already
-  if (!isProviderMounted) {
-    await providerMountedPromise;
   }
 
   const purchaseHandler = {
@@ -341,6 +267,8 @@ export const handleDeepLink = async (url: string | null): Promise<boolean> => {
         console.log('[Helium] Handled deep link:', handled);
         resolve(handled);
       });
+    } else {
+      resolve(false);
     }
   });
 };

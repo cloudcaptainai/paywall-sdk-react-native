@@ -212,7 +212,7 @@ function callPaywallEventHandlers(event: HeliumPaywallEvent) {
       case 'purchaseSucceeded':
         paywallEventHandlers?.onPurchaseSucceeded?.({
           type: 'purchaseSucceeded',
-          productId: event.productKey ?? 'unknown',
+          productId: event.productId ?? 'unknown',
           triggerName: event.triggerName ?? 'unknown',
           paywallName: event.paywallName ?? 'unknown',
           isSecondTry: event.isSecondTry ?? false,

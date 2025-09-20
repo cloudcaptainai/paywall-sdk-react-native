@@ -151,8 +151,8 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
         if let productId = eventDict["productId"] {
             eventDict["productKey"] = productId
         }
-        if let productId = eventDict["buttonName"] {
-            eventDict["ctaName"] = productId
+        if let buttonName = eventDict["buttonName"] {
+            eventDict["ctaName"] = buttonName
         }
         bridge?.sendEvent(
             withName: "helium_paywall_event",

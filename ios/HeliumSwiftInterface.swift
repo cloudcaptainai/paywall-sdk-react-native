@@ -203,12 +203,12 @@ class HeliumBridge: RCTEventEmitter {
 
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
-        let customUserTraits = config["customUserTraits"] as? [String: Any]
+        let customUserTraits = convertMarkersToBooleans(config["customUserTraits"] as? [String: Any])
         let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
         let fallbackBundleURLString = config["fallbackBundleUrlString"] as? String
         let fallbackBundleString = config["fallbackBundleString"] as? String
 
-        let paywallLoadingConfig = config["paywallLoadingConfig"] as? [String: Any]
+        let paywallLoadingConfig = convertMarkersToBooleans(config["paywallLoadingConfig"] as? [String: Any])
         let useLoadingState = paywallLoadingConfig?["useLoadingState"] as? Bool ?? true
         let loadingBudget = paywallLoadingConfig?["loadingBudget"] as? TimeInterval ?? 2.0
 
@@ -224,9 +224,34 @@ class HeliumBridge: RCTEventEmitter {
           perTriggerLoadingConfig = triggerConfigs
         }
 
+        let useDefaultDelegate = config["useDefaultDelegate"] as? Bool ?? false
+
+        let delegateEventHandler: (HeliumEvent) -> Void = { [weak self] event in
+            var eventDict = event.toDictionary()
+            // Add deprecated fields for backwards compatibility
+            if let paywallName = eventDict["paywallName"] {
+                eventDict["paywallTemplateName"] = paywallName
+            }
+            if let error = eventDict["error"] {
+                eventDict["errorDescription"] = error
+            }
+            if let productId = eventDict["productId"] {
+                eventDict["productKey"] = productId
+            }
+            if let buttonName = eventDict["buttonName"] {
+                eventDict["ctaName"] = buttonName
+            }
+            self?.sendEvent(
+                withName: "helium_paywall_event",
+                body: eventDict
+            )
+        }
+
         self.bridgingDelegate = BridgingPaywallDelegate(
             bridge: self
         )
+
+        let defaultDelegate = DefaultPurchaseDelegate(eventHandler: delegateEventHandler)
 
         // Handle fallback bundle - either as URL string or JSON string
         var fallbackBundleURL: URL? = nil
@@ -246,7 +271,7 @@ class HeliumBridge: RCTEventEmitter {
 
         Helium.shared.initialize(
             apiKey: apiKey,
-            heliumPaywallDelegate: self.bridgingDelegate!,
+            heliumPaywallDelegate: useDefaultDelegate ? defaultDelegate : self.bridgingDelegate!,
             fallbackConfig: HeliumFallbackConfig.withMultipleFallbacks(
                 fallbackBundle: fallbackBundleURL,
                 useLoadingState: useLoadingState,
@@ -308,7 +333,7 @@ class HeliumBridge: RCTEventEmitter {
                 self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             }
         ),
-        customPaywallTraits: customPaywallTraits
+        customPaywallTraits: convertMarkersToBooleans(customPaywallTraits)
     );
   }
     
@@ -397,4 +422,50 @@ class HeliumBridge: RCTEventEmitter {
     callback([canPresent, reason])
   }
 
+  @objc
+  public func setRevenueCatAppUserId(_ rcAppUserId: String) {
+      Helium.shared.setRevenueCatAppUserId(rcAppUserId)
+  }
+
+  private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {
+      guard let input = input else { return nil }
+
+      var result: [String: Any] = [:]
+      for (key, value) in input {
+          result[key] = convertValueMarkersToBooleans(value)
+      }
+      return result
+  }
+
+  private func convertValueMarkersToBooleans(_ value: Any) -> Any {
+      if let stringValue = value as? String {
+          switch stringValue {
+          case "__helium_rn_bool_true__":
+              return true
+          case "__helium_rn_bool_false__":
+              return false
+          default:
+              return stringValue
+          }
+      } else if let dictValue = value as? [String: Any] {
+          return convertMarkersToBooleans(dictValue) ?? [:]
+      } else if let arrayValue = value as? [Any] {
+          return arrayValue.map { convertValueMarkersToBooleans($0) }
+      }
+      return value
+  }
+
+}
+
+fileprivate class DefaultPurchaseDelegate: StoreKitDelegate {
+    private let eventHandler: (HeliumEvent) -> Void
+    init(
+        eventHandler: @escaping (HeliumEvent) -> Void
+    ) {
+        self.eventHandler = eventHandler
+    }
+
+    override func onPaywallEvent(_ event: any HeliumEvent) {
+        eventHandler(event)
+    }
 }

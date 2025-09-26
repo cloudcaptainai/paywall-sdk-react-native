@@ -7,6 +7,7 @@ export {
   hideAllUpsells,
   getPaywallInfo,
   handleDeepLink,
+  setRevenueCatAppUserId,
   HELIUM_CTA_NAMES,
   NativeHeliumUpsellView,
 } from './native-interface';

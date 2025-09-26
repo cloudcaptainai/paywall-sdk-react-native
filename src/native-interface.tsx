@@ -37,10 +37,12 @@ export const initialize = async (config: HeliumConfig) => {
     return;
   }
 
-  const purchaseHandler = {
-    makePurchase: config.purchaseConfig.makePurchase,
-    restorePurchases: config.purchaseConfig.restorePurchases,
-  };
+  const purchaseHandler = config.purchaseConfig
+    ? {
+        makePurchase: config.purchaseConfig.makePurchase,
+        restorePurchases: config.purchaseConfig.restorePurchases,
+      }
+    : null;
 
   // Update download status to inProgress
   updateDownloadStatus('inProgress');
@@ -62,6 +64,9 @@ export const initialize = async (config: HeliumConfig) => {
         updateDownloadStatus('failed');
       }
 
+      // Handle internal event logic first
+      handlePaywallEvent(event);
+
       // Forward all events to the callback provided in config
       config.onHeliumPaywallEvent(event);
     }
@@ -75,30 +80,33 @@ export const initialize = async (config: HeliumConfig) => {
     }
   );
 
-  // Set up purchase event listener using the determined handler
-  heliumEventEmitter.addListener(
-    'helium_make_purchase',
-    async (event: { productId: string; transactionId: string }) => {
-      const result = await purchaseHandler.makePurchase(event.productId);
-      HeliumBridge.handlePurchaseResponse({
-        transactionId: event.transactionId,
-        status: result.status,
-        error: result.error,
-      });
-    }
-  );
+  // Set up purchase event listeners only if we have a purchase handler
+  if (purchaseHandler) {
+    // Set up purchase event listener using the determined handler
+    heliumEventEmitter.addListener(
+      'helium_make_purchase',
+      async (event: { productId: string; transactionId: string }) => {
+        const result = await purchaseHandler.makePurchase(event.productId);
+        HeliumBridge.handlePurchaseResponse({
+          transactionId: event.transactionId,
+          status: result.status,
+          error: result.error,
+        });
+      }
+    );
 
-  // Set up restore purchases event listener using the determined handler
-  heliumEventEmitter.addListener(
-    'helium_restore_purchases',
-    async (event: { transactionId: string }) => {
-      const success = await purchaseHandler.restorePurchases();
-      HeliumBridge.handleRestoreResponse({
-        transactionId: event.transactionId,
-        status: success ? 'restored' : 'failed',
-      });
-    }
-  );
+    // Set up restore purchases event listener using the determined handler
+    heliumEventEmitter.addListener(
+      'helium_restore_purchases',
+      async (event: { transactionId: string }) => {
+        const success = await purchaseHandler.restorePurchases();
+        HeliumBridge.handleRestoreResponse({
+          transactionId: event.transactionId,
+          status: success ? 'restored' : 'failed',
+        });
+      }
+    );
+  }
 
   let fallbackBundleUrlString;
   let fallbackBundleString;
@@ -128,12 +136,16 @@ export const initialize = async (config: HeliumConfig) => {
       apiKey: config.apiKey,
       customUserId: config.customUserId || null,
       customAPIEndpoint: config.customAPIEndpoint || null,
-      customUserTraits:
-        config.customUserTraits == null ? {} : config.customUserTraits,
+      customUserTraits: convertBooleansToMarkers(
+        config.customUserTraits == null ? {} : config.customUserTraits
+      ),
       revenueCatAppUserId: config.revenueCatAppUserId,
       fallbackBundleUrlString: fallbackBundleUrlString,
       fallbackBundleString: fallbackBundleString,
-      paywallLoadingConfig: config.paywallLoadingConfig,
+      paywallLoadingConfig: convertBooleansToMarkers(
+        config.paywallLoadingConfig
+      ),
+      useDefaultDelegate: !config.purchaseConfig,
     },
     {}
   );
@@ -165,7 +177,10 @@ export const presentUpsell = ({
       try {
         paywallEventHandlers = eventHandlers;
         presentOnFallback = onFallback;
-        HeliumBridge.presentUpsell(triggerName, customPaywallTraits || null);
+        HeliumBridge.presentUpsell(
+          triggerName,
+          convertBooleansToMarkers(customPaywallTraits) || null
+        );
       } catch (error) {
         console.log('[Helium] Present error', error);
         paywallEventHandlers = undefined;
@@ -196,10 +211,6 @@ function callPaywallEventHandlers(event: HeliumPaywallEvent) {
           paywallName: event.paywallName ?? 'unknown',
           isSecondTry: event.isSecondTry ?? false,
         });
-        if (!event.isSecondTry) {
-          paywallEventHandlers = undefined;
-        }
-        presentOnFallback = undefined;
         break;
       case 'paywallDismissed':
         paywallEventHandlers?.onDismissed?.({
@@ -218,16 +229,27 @@ function callPaywallEventHandlers(event: HeliumPaywallEvent) {
           isSecondTry: event.isSecondTry ?? false,
         });
         break;
-      case 'paywallSkipped':
-        paywallEventHandlers = undefined;
-        presentOnFallback = undefined;
-        break;
-      case 'paywallOpenFailed':
-        paywallEventHandlers = undefined;
-        presentOnFallback?.();
-        presentOnFallback = undefined;
-        break;
     }
+  }
+}
+
+function handlePaywallEvent(event: HeliumPaywallEvent) {
+  switch (event.type) {
+    case 'paywallClose':
+      if (!event.isSecondTry) {
+        paywallEventHandlers = undefined;
+      }
+      presentOnFallback = undefined;
+      break;
+    case 'paywallSkipped':
+      paywallEventHandlers = undefined;
+      presentOnFallback = undefined;
+      break;
+    case 'paywallOpenFailed':
+      paywallEventHandlers = undefined;
+      presentOnFallback?.();
+      presentOnFallback = undefined;
+      break;
   }
 }
 
@@ -273,7 +295,33 @@ export const handleDeepLink = async (url: string | null): Promise<boolean> => {
   });
 };
 
+export const setRevenueCatAppUserId = (rcAppUserId: string) => {
+  HeliumBridge.setRevenueCatAppUserId(rcAppUserId);
+};
+
 export const HELIUM_CTA_NAMES = {
   SCHEDULE_CALL: 'schedule_call',
   SUBSCRIBE_BUTTON: 'subscribe_button',
 };
+
+function convertBooleansToMarkers(
+  input: Record<string, any> | undefined
+): Record<string, any> | undefined {
+  if (!input) return undefined;
+
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(input)) {
+    result[key] = convertValueBooleansToMarkers(value);
+  }
+  return result;
+}
+function convertValueBooleansToMarkers(value: any): any {
+  if (typeof value === 'boolean') {
+    return value ? '__helium_rn_bool_true__' : '__helium_rn_bool_false__';
+  } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return convertBooleansToMarkers(value);
+  } else if (value && Array.isArray(value)) {
+    return value.map(convertValueBooleansToMarkers);
+  }
+  return value;
+}

@@ -313,7 +313,6 @@ function convertBooleansToMarkers(
   }
   return result;
 }
-
 function convertValueBooleansToMarkers(value: any): any {
   if (typeof value === 'boolean') {
     return value ? '__helium_rn_bool_true__' : '__helium_rn_bool_false__';

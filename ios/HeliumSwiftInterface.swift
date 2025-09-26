@@ -436,7 +436,6 @@ class HeliumBridge: RCTEventEmitter {
       }
       return result
   }
-
   private func convertValueMarkersToBooleans(_ value: Any) -> Any {
       if let stringValue = value as? String {
           switch stringValue {

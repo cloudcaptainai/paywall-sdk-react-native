@@ -21,9 +21,6 @@ export type HeliumDownloadStatus =
 export interface HeliumPurchaseConfig {
   makePurchase: (productId: string) => Promise<HeliumPurchaseResult>;
   restorePurchases: () => Promise<boolean>;
-
-  /** Optional RevenueCat API Key. If not provided, RevenueCat must be configured elsewhere. */
-  apiKey?: string;
 }
 
 // Helper function for creating Custom Purchase Config
@@ -173,7 +170,7 @@ export interface HeliumConfig {
   /** Your Helium API Key */
   apiKey: string;
   /** Configuration for handling purchases. Can be custom functions or a pre-built handler config. */
-  purchaseConfig: HeliumPurchaseConfig;
+  purchaseConfig?: HeliumPurchaseConfig;
   /** Callback for receiving all Helium paywall events. */
   onHeliumPaywallEvent: (event: HeliumPaywallEvent) => void;
 

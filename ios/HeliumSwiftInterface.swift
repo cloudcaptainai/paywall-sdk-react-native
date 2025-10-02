@@ -427,6 +427,28 @@ class HeliumBridge: RCTEventEmitter {
       Helium.shared.setRevenueCatAppUserId(rcAppUserId)
   }
 
+  @objc
+  public func hasAnyActiveSubscription(
+      _ resolver: @escaping RCTPromiseResolveBlock,
+      rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+      Task {
+          let result = await Helium.shared.hasAnyActiveSubscription()
+          resolver(result)
+      }
+  }
+
+  @objc
+  public func hasAnyEntitlement(
+      _ resolver: @escaping RCTPromiseResolveBlock,
+      rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+      Task {
+          let result = await Helium.shared.hasAnyEntitlement()
+          resolver(result)
+      }
+  }
+
   private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {
       guard let input = input else { return nil }
 

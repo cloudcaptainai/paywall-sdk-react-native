@@ -299,6 +299,20 @@ export const setRevenueCatAppUserId = (rcAppUserId: string) => {
   HeliumBridge.setRevenueCatAppUserId(rcAppUserId);
 };
 
+/**
+ * Checks if the user has any active subscription (including non-renewable)
+ */
+export const hasAnyActiveSubscription = async (): Promise<boolean> => {
+  return HeliumBridge.hasAnyActiveSubscription();
+};
+
+/**
+ * Checks if the user has any entitlement
+ */
+export const hasAnyEntitlement = async (): Promise<boolean> => {
+  return HeliumBridge.hasAnyEntitlement();
+};
+
 export const HELIUM_CTA_NAMES = {
   SCHEDULE_CALL: 'schedule_call',
   SUBSCRIBE_BUTTON: 'subscribe_button',

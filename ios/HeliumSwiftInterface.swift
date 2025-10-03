@@ -273,6 +273,9 @@ class HeliumBridge: RCTEventEmitter {
             apiKey: apiKey,
             heliumPaywallDelegate: useDefaultDelegate ? defaultDelegate : self.bridgingDelegate!,
             fallbackConfig: HeliumFallbackConfig.withMultipleFallbacks(
+                // As a workaround for required fallback check in iOS, supply empty fallbackPerTrigger
+                // since currently iOS requires some type of fallback but RN does not.
+                fallbackPerTrigger: [:],
                 fallbackBundle: fallbackBundleURL,
                 useLoadingState: useLoadingState,
                 loadingBudget: loadingBudget,

@@ -66,4 +66,14 @@ RCT_EXTERN_METHOD(
     setRevenueCatAppUserId:(NSString *)rcAppUserId
 )
 
+RCT_EXTERN_METHOD(
+    hasAnyActiveSubscription:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    hasAnyEntitlement:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
 @end

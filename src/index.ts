@@ -8,6 +8,8 @@ export {
   getPaywallInfo,
   handleDeepLink,
   setRevenueCatAppUserId,
+  hasAnyActiveSubscription,
+  hasAnyEntitlement,
   HELIUM_CTA_NAMES,
   NativeHeliumUpsellView,
 } from './native-interface';

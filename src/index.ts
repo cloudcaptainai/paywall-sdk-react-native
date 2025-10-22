@@ -10,6 +10,10 @@ export {
   setRevenueCatAppUserId,
   hasAnyActiveSubscription,
   hasAnyEntitlement,
+  getExperimentInfoForTrigger,
+  resetHelium,
+  setCustomRestoreFailedStrings,
+  disableRestoreFailedDialog,
   HELIUM_CTA_NAMES,
   NativeHeliumUpsellView,
 } from './native-interface';
@@ -25,6 +29,14 @@ export type {
   PaywallCloseEvent,
   PaywallDismissedEvent,
   PurchaseSucceededEvent,
+  PaywallOpenFailedEvent,
+  CustomPaywallActionEvent,
   HeliumPaywallEvent,
   PresentUpsellParams,
 } from './types';
+
+export type {
+  ExperimentInfo,
+  HashDetails,
+  VariantDetails,
+} from './HeliumExperimentInfo.types';

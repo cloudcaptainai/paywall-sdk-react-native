@@ -334,6 +334,12 @@ class HeliumBridge: RCTEventEmitter {
             },
             onPurchaseSucceeded: { [weak self] event in
                 self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            },
+            onOpenFailed: { [weak self] event in
+                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            },
+            onCustomPaywallAction: { [weak self] event in
+                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             }
         ),
         customPaywallTraits: convertMarkersToBooleans(customPaywallTraits)
@@ -356,7 +362,7 @@ class HeliumBridge: RCTEventEmitter {
     isOpen: Bool,
     viewType: String?
   ) {
-    HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType)
+    HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType, fallbackReason: .bridgingError)
   }
 
   @objc
@@ -387,45 +393,6 @@ class HeliumBridge: RCTEventEmitter {
   }
 
   @objc
-  public func canPresentUpsell(
-      _ trigger: String,
-      callback: @escaping RCTResponseSenderBlock
-  ) {
-    // Check if paywalls are downloaded successfully
-    let paywallsLoaded = Helium.shared.paywallsLoaded()
-
-    // Check if trigger exists in fetched triggers
-    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames()
-    let hasTrigger = triggerNames.contains(trigger)
-
-    let canPresent: Bool
-    let reason: String
-
-    let useLoading = Helium.shared.loadingStateEnabledFor(trigger: trigger)
-    let downloadInProgress = Helium.shared.getDownloadStatus() == .inProgress
-
-    if paywallsLoaded && hasTrigger {
-      // Normal case - paywall is ready
-      canPresent = true
-      reason = "ready"
-    } else if downloadInProgress && useLoading {
-      // Loading case - paywall still downloading
-      canPresent = true
-      reason = "loading"
-    } else if HeliumFallbackViewManager.shared.getFallbackInfo(trigger: trigger) != nil {
-      // Fallback is available (via downloaded bundle)
-      canPresent = true
-      reason = "fallback_ready"
-    } else {
-      // No paywall and no fallback bundle
-      canPresent = false
-      reason = !paywallsLoaded ? "download status - \(Helium.shared.getDownloadStatus().rawValue)" : "trigger_not_found"
-    }
-
-    callback([canPresent, reason])
-  }
-
-  @objc
   public func setRevenueCatAppUserId(_ rcAppUserId: String) {
       Helium.shared.setRevenueCatAppUserId(rcAppUserId)
   }
@@ -450,6 +417,55 @@ class HeliumBridge: RCTEventEmitter {
           let result = await Helium.shared.hasAnyEntitlement()
           resolver(result)
       }
+  }
+
+  @objc
+  public func getExperimentInfoForTrigger(
+      _ trigger: String,
+      callback: RCTResponseSenderBlock
+  ) {
+      guard let experimentInfo = Helium.shared.getExperimentInfoForTrigger(trigger) else {
+          callback([[
+              "getExperimentInfoErrorMsg": "No experiment info found for trigger: \(trigger)"
+          ]])
+          return
+      }
+
+      // Convert ExperimentInfo to dictionary using JSONEncoder
+      let encoder = JSONEncoder()
+      guard let jsonData = try? encoder.encode(experimentInfo),
+            var dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
+          callback([[
+              "getExperimentInfoErrorMsg": "Failed to serialize experiment info"
+          ]])
+          return
+      }
+
+      // Return the dictionary directly - it contains all ExperimentInfo fields
+      callback([dictionary])
+  }
+
+  @objc
+  public func disableRestoreFailedDialog() {
+      Helium.restorePurchaseConfig.disableRestoreFailedDialog()
+  }
+
+  @objc
+  public func setCustomRestoreFailedStrings(
+      _ customTitle: String?,
+      customMessage: String?,
+      customCloseButtonText: String?
+  ) {
+      Helium.restorePurchaseConfig.setCustomRestoreFailedStrings(
+          customTitle: customTitle,
+          customMessage: customMessage,
+          customCloseButtonText: customCloseButtonText
+      )
+  }
+
+  @objc
+  public func resetHelium() {
+      Helium.resetHelium()
   }
 
   private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {

@@ -334,29 +334,30 @@ export const hasAnyEntitlement = async (): Promise<boolean> => {
  * @param trigger The trigger name to get experiment info for
  * @returns ExperimentInfo if the trigger has experiment data, undefined otherwise
  */
-export const getExperimentInfoForTrigger = async (trigger: string): Promise<ExperimentInfo | undefined> => {
+export const getExperimentInfoForTrigger = async (
+  trigger: string
+): Promise<ExperimentInfo | undefined> => {
   return new Promise((resolve) => {
-    HeliumBridge.getExperimentInfoForTrigger(
-      trigger,
-      (result: any) => {
-        if (!result) {
-          console.log('[Helium] getExperimentInfoForTrigger unexpected error.');
-          resolve(undefined);
-          return;
-        }
-        if (result.getExperimentInfoErrorMsg) {
-          resolve(undefined);
-          return;
-        }
-        // Validate required field exists before casting
-        if (!result.trigger) {
-          console.log('[Helium] getExperimentInfoForTrigger returned data without required trigger field.');
-          resolve(undefined);
-          return;
-        }
-        resolve(result as ExperimentInfo);
+    HeliumBridge.getExperimentInfoForTrigger(trigger, (result: any) => {
+      if (!result) {
+        console.log('[Helium] getExperimentInfoForTrigger unexpected error.');
+        resolve(undefined);
+        return;
       }
-    );
+      if (result.getExperimentInfoErrorMsg) {
+        resolve(undefined);
+        return;
+      }
+      // Validate required field exists before casting
+      if (!result.trigger) {
+        console.log(
+          '[Helium] getExperimentInfoForTrigger returned data without required trigger field.'
+        );
+        resolve(undefined);
+        return;
+      }
+      resolve(result as ExperimentInfo);
+    });
   });
 };
 
@@ -371,8 +372,16 @@ export const resetHelium = () => {
  * Set custom strings to show in the dialog that Helium will display if a "Restore Purchases" action is not successful.
  * Note that these strings will not be localized by Helium for you.
  */
-export const setCustomRestoreFailedStrings = (customTitle?: string, customMessage?: string, customCloseButtonText?: string) => {
-  HeliumBridge.setCustomRestoreFailedStrings(customTitle, customMessage, customCloseButtonText);
+export const setCustomRestoreFailedStrings = (
+  customTitle?: string,
+  customMessage?: string,
+  customCloseButtonText?: string
+) => {
+  HeliumBridge.setCustomRestoreFailedStrings(
+    customTitle,
+    customMessage,
+    customCloseButtonText
+  );
 };
 
 /**

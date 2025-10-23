@@ -194,7 +194,10 @@ export type PresentUpsellParams = {
 export interface HeliumConfig {
   /** Your Helium API Key */
   apiKey: string;
-  /** Configuration for handling purchases. Can be custom functions or a pre-built handler config. */
+  /**
+   * Configuration for handling purchases. Can be custom functions or a pre-built handler config.
+   * If not provided, Helium will handle purchases for you.
+   */
   purchaseConfig?: HeliumPurchaseConfig;
   /** Callback for receiving all Helium paywall events. */
   onHeliumPaywallEvent: (event: HeliumPaywallEvent) => void;

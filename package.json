@@ -1,6 +1,6 @@
 {
   "name": "@tryheliumai/paywall-sdk-react-native",
-  "version": "3.0.7",
+  "version": "3.0.12",
   "description": "Paywall SDK Helium",
   "source": "./src/index.ts",
   "main": "./lib/commonjs/index.js",

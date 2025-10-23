@@ -53,11 +53,6 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
-    canPresentUpsell:(NSString *)trigger
-    callback:(RCTResponseSenderBlock)callback
-)
-
-RCT_EXTERN_METHOD(
     handleDeepLink:(NSString *)urlString
     callback:(RCTResponseSenderBlock)callback
 )
@@ -74,6 +69,25 @@ RCT_EXTERN_METHOD(
 RCT_EXTERN_METHOD(
     hasAnyEntitlement:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    getExperimentInfoForTrigger:(NSString *)trigger
+    callback:(RCTResponseSenderBlock)callback
+)
+
+RCT_EXTERN_METHOD(
+    disableRestoreFailedDialog
+)
+
+RCT_EXTERN_METHOD(
+    setCustomRestoreFailedStrings:(NSString *)customTitle
+    customMessage:(NSString *)customMessage
+    customCloseButtonText:(NSString *)customCloseButtonText
+)
+
+RCT_EXTERN_METHOD(
+    resetHelium
 )
 
 @end

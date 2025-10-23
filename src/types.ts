@@ -69,6 +69,8 @@ export interface PaywallEventHandlers {
   onClose?: (event: PaywallCloseEvent) => void;
   onDismissed?: (event: PaywallDismissedEvent) => void;
   onPurchaseSucceeded?: (event: PurchaseSucceededEvent) => void;
+  onOpenFailed?: (event: PaywallOpenFailedEvent) => void;
+  onCustomPaywallAction?: (event: CustomPaywallActionEvent) => void;
 }
 
 // Typed event interfaces
@@ -102,6 +104,24 @@ export interface PurchaseSucceededEvent {
   isSecondTry: boolean;
 }
 
+export interface PaywallOpenFailedEvent {
+  type: 'paywallOpenFailed';
+  triggerName: string;
+  paywallName: string;
+  error: string;
+  paywallUnavailableReason?: string;
+  isSecondTry: boolean;
+}
+
+export interface CustomPaywallActionEvent {
+  type: 'customPaywallAction';
+  triggerName: string;
+  paywallName: string;
+  actionName: string;
+  params: Record<string, any>;
+  isSecondTry: boolean;
+}
+
 export type HeliumPaywallEvent = {
   type:
     | 'paywallOpen'
@@ -121,7 +141,9 @@ export type HeliumPaywallEvent = {
     | 'initializeStart'
     | 'paywallsDownloadSuccess'
     | 'paywallsDownloadError'
-    | 'paywallWebViewRendered';
+    | 'paywallWebViewRendered'
+    | 'customPaywallAction'
+    | 'userAllocated';
   triggerName?: string;
   paywallName?: string;
   /**
@@ -155,6 +177,9 @@ export type HeliumPaywallEvent = {
    * Unix timestamp in seconds
    */
   timestamp?: number;
+  paywallUnavailableReason?: string;
+  customPaywallActionName?: string;
+  customPaywallActionParams?: Record<string, any>;
 };
 
 export type PresentUpsellParams = {
@@ -169,7 +194,10 @@ export type PresentUpsellParams = {
 export interface HeliumConfig {
   /** Your Helium API Key */
   apiKey: string;
-  /** Configuration for handling purchases. Can be custom functions or a pre-built handler config. */
+  /**
+   * Configuration for handling purchases. Can be custom functions or a pre-built handler config.
+   * If not provided, Helium will handle purchases for you.
+   */
   purchaseConfig?: HeliumPurchaseConfig;
   /** Callback for receiving all Helium paywall events. */
   onHeliumPaywallEvent: (event: HeliumPaywallEvent) => void;

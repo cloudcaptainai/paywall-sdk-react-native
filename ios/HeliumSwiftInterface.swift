@@ -425,9 +425,7 @@ class HeliumBridge: RCTEventEmitter {
       callback: RCTResponseSenderBlock
   ) {
       guard let experimentInfo = Helium.shared.getExperimentInfoForTrigger(trigger) else {
-          callback([[
-              "getExperimentInfoErrorMsg": "No experiment info found for trigger: \(trigger)"
-          ]])
+          callback([false, NSNull()])
           return
       }
 
@@ -435,14 +433,12 @@ class HeliumBridge: RCTEventEmitter {
       let encoder = JSONEncoder()
       guard let jsonData = try? encoder.encode(experimentInfo),
             var dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
-          callback([[
-              "getExperimentInfoErrorMsg": "Failed to serialize experiment info"
-          ]])
+          callback([false, NSNull()])
           return
       }
 
       // Return the dictionary directly - it contains all ExperimentInfo fields
-      callback([dictionary])
+      callback([true, dictionary])
   }
 
   @objc

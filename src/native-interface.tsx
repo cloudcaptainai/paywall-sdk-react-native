@@ -338,25 +338,12 @@ export const getExperimentInfoForTrigger = async (
   trigger: string
 ): Promise<ExperimentInfo | undefined> => {
   return new Promise((resolve) => {
-    HeliumBridge.getExperimentInfoForTrigger(trigger, (result: any) => {
-      if (!result) {
-        console.log('[Helium] getExperimentInfoForTrigger unexpected error.');
+    HeliumBridge.getExperimentInfoForTrigger(trigger, (success: boolean, data: any) => {
+      if (!success) {
         resolve(undefined);
         return;
       }
-      if (result.getExperimentInfoErrorMsg) {
-        resolve(undefined);
-        return;
-      }
-      // Validate required field exists before casting
-      if (!result.trigger) {
-        console.log(
-          '[Helium] getExperimentInfoForTrigger returned data without required trigger field.'
-        );
-        resolve(undefined);
-        return;
-      }
-      resolve(result as ExperimentInfo);
+      resolve(data as ExperimentInfo);
     });
   });
 };

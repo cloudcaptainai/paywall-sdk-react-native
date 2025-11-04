@@ -67,7 +67,8 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
     hasEntitlementForPaywall:(NSString *)trigger
-    callback:(RCTResponseSenderBlock)callback
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
 )
 
 RCT_EXTERN_METHOD(

@@ -330,18 +330,7 @@ export const setCustomUserId = (newUserId: string) => {
 export const hasEntitlementForPaywall = async (
   trigger: string
 ): Promise<boolean | undefined> => {
-  return new Promise((resolve) => {
-    HeliumBridge.hasEntitlementForPaywall(
-      trigger,
-      (hasEntitlement: boolean | null) => {
-        if (hasEntitlement === null) {
-          resolve(undefined);
-          return;
-        }
-        resolve(hasEntitlement);
-      }
-    );
-  });
+  return HeliumBridge.hasEntitlementForPaywall(trigger);
 };
 
 /**

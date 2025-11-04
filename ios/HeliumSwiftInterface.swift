@@ -405,15 +405,12 @@ class HeliumBridge: RCTEventEmitter {
   @objc
   public func hasEntitlementForPaywall(
       _ trigger: String,
-      callback: RCTResponseSenderBlock
+      resolver: @escaping RCTPromiseResolveBlock,
+      rejecter: @escaping RCTPromiseRejectBlock
   ) {
       Task {
           let hasEntitlement = await Helium.shared.hasEntitlementForPaywall(trigger: trigger)
-          if let hasEntitlement = hasEntitlement {
-              callback([NSNull(), hasEntitlement])
-          } else {
-              callback([NSNull(), NSNull()])
-          }
+          resolver(hasEntitlement)
       }
   }
 

@@ -13,6 +13,7 @@ export type HeliumDownloadStatus =
   | 'failed'
   | 'inProgress'
   | 'notStarted';
+export type HeliumLightDarkMode = 'light' | 'dark' | 'system';
 
 // --- Purchase Configuration Types ---
 

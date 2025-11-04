@@ -62,6 +62,15 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+    setCustomUserId:(NSString *)newUserId
+)
+
+RCT_EXTERN_METHOD(
+    hasEntitlementForPaywall:(NSString *)trigger
+    callback:(RCTResponseSenderBlock)callback
+)
+
+RCT_EXTERN_METHOD(
     hasAnyActiveSubscription:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject
 )
@@ -88,6 +97,10 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
     resetHelium
+)
+
+RCT_EXTERN_METHOD(
+    setLightDarkModeOverride:(NSString *)mode
 )
 
 @end

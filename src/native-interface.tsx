@@ -7,6 +7,7 @@ import type {
   HeliumConfig,
   HeliumUpsellViewProps,
   HeliumDownloadStatus,
+  HeliumLightDarkMode,
   PaywallInfo,
   PresentUpsellParams,
   PaywallEventHandlers,
@@ -315,6 +316,35 @@ export const setRevenueCatAppUserId = (rcAppUserId: string) => {
 };
 
 /**
+ * Set a custom user ID for the current user
+ */
+export const setCustomUserId = (newUserId: string) => {
+  HeliumBridge.setCustomUserId(newUserId);
+};
+
+/**
+ * Checks if the user has an active entitlement for any product attached to the paywall that will show for provided trigger.
+ * @param trigger The trigger name to check entitlement for
+ * @returns Promise resolving to true if entitled, false if not, or undefined if not known (i.e. the paywall is not downloaded yet)
+ */
+export const hasEntitlementForPaywall = async (
+  trigger: string
+): Promise<boolean | undefined> => {
+  return new Promise((resolve) => {
+    HeliumBridge.hasEntitlementForPaywall(
+      trigger,
+      (hasEntitlement: boolean | null) => {
+        if (hasEntitlement === null) {
+          resolve(undefined);
+          return;
+        }
+        resolve(hasEntitlement);
+      }
+    );
+  });
+};
+
+/**
  * Checks if the user has any active subscription (including non-renewable)
  */
 export const hasAnyActiveSubscription = async (): Promise<boolean> => {
@@ -338,13 +368,16 @@ export const getExperimentInfoForTrigger = async (
   trigger: string
 ): Promise<ExperimentInfo | undefined> => {
   return new Promise((resolve) => {
-    HeliumBridge.getExperimentInfoForTrigger(trigger, (success: boolean, data: any) => {
-      if (!success) {
-        resolve(undefined);
-        return;
+    HeliumBridge.getExperimentInfoForTrigger(
+      trigger,
+      (success: boolean, data: any) => {
+        if (!success) {
+          resolve(undefined);
+          return;
+        }
+        resolve(data as ExperimentInfo);
       }
-      resolve(data as ExperimentInfo);
-    });
+    );
   });
 };
 
@@ -377,6 +410,14 @@ export const setCustomRestoreFailedStrings = (
  */
 export const disableRestoreFailedDialog = () => {
   HeliumBridge.disableRestoreFailedDialog();
+};
+
+/**
+ * Override the light/dark mode for Helium paywalls
+ * @param mode The mode to set: 'light', 'dark', or 'system' (follows device setting)
+ */
+export const setLightDarkModeOverride = (mode: HeliumLightDarkMode) => {
+  HeliumBridge.setLightDarkModeOverride(mode);
 };
 
 export const HELIUM_CTA_NAMES = {

@@ -398,6 +398,26 @@ class HeliumBridge: RCTEventEmitter {
   }
 
   @objc
+  public func setCustomUserId(_ newUserId: String) {
+      Helium.shared.overrideUserId(newUserId: newUserId)
+  }
+
+  @objc
+  public func hasEntitlementForPaywall(
+      _ trigger: String,
+      callback: RCTResponseSenderBlock
+  ) {
+      Task {
+          let hasEntitlement = await Helium.shared.hasEntitlementForPaywall(trigger: trigger)
+          if let hasEntitlement = hasEntitlement {
+              callback([NSNull(), hasEntitlement])
+          } else {
+              callback([NSNull(), NSNull()])
+          }
+      }
+  }
+
+  @objc
   public func hasAnyActiveSubscription(
       _ resolver: @escaping RCTPromiseResolveBlock,
       rejecter: @escaping RCTPromiseRejectBlock
@@ -432,7 +452,7 @@ class HeliumBridge: RCTEventEmitter {
       // Convert ExperimentInfo to dictionary using JSONEncoder
       let encoder = JSONEncoder()
       guard let jsonData = try? encoder.encode(experimentInfo),
-            var dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
+            let dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
           callback([false, NSNull()])
           return
       }
@@ -462,6 +482,23 @@ class HeliumBridge: RCTEventEmitter {
   @objc
   public func resetHelium() {
       Helium.resetHelium()
+  }
+
+  @objc
+  public func setLightDarkModeOverride(_ mode: String) {
+      let heliumMode: HeliumLightDarkMode
+      switch mode.lowercased() {
+      case "light":
+          heliumMode = .light
+      case "dark":
+          heliumMode = .dark
+      case "system":
+          heliumMode = .system
+      default:
+          print("[Helium] Invalid mode: \(mode), defaulting to system")
+          heliumMode = .system
+      }
+      Helium.shared.setLightDarkModeOverride(heliumMode)
   }
 
   private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {

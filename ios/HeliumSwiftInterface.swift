@@ -318,7 +318,8 @@ class HeliumBridge: RCTEventEmitter {
   @objc
   public func presentUpsell(
     _ trigger: String,
-    customPaywallTraits: [String: Any]?
+    customPaywallTraits: [String: Any]?,
+    dontShowIfAlreadyEntitled: Bool
   ) {
     Helium.shared.presentUpsell(
         trigger: trigger,
@@ -342,7 +343,8 @@ class HeliumBridge: RCTEventEmitter {
                 self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             }
         ),
-        customPaywallTraits: convertMarkersToBooleans(customPaywallTraits)
+        customPaywallTraits: convertMarkersToBooleans(customPaywallTraits),
+        dontShowIfAlreadyEntitled: dontShowIfAlreadyEntitled
     );
   }
     

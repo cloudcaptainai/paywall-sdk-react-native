@@ -19,6 +19,7 @@ RCT_EXTERN_METHOD(
 RCT_EXTERN_METHOD(
     presentUpsell:(NSString *)trigger
     customPaywallTraits:(NSDictionary *)customPaywallTraits
+    dontShowIfAlreadyEntitled:(BOOL)dontShowIfAlreadyEntitled
 )
 
 RCT_EXTERN_METHOD(

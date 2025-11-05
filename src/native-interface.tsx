@@ -163,13 +163,15 @@ export const presentUpsell = ({
   onFallback,
   eventHandlers,
   customPaywallTraits,
+  dontShowIfAlreadyEntitled,
 }: PresentUpsellParams) => {
   try {
     paywallEventHandlers = eventHandlers;
     presentOnFallback = onFallback;
     HeliumBridge.presentUpsell(
       triggerName,
-      convertBooleansToMarkers(customPaywallTraits) || null
+      convertBooleansToMarkers(customPaywallTraits) || null,
+      dontShowIfAlreadyEntitled ?? false
     );
   } catch (error) {
     console.log('[Helium] presentUpsell error', error);

@@ -189,6 +189,8 @@ export type PresentUpsellParams = {
   onFallback?: () => void;
   eventHandlers?: PaywallEventHandlers;
   customPaywallTraits?: Record<string, any>;
+  /** Optional. If true, the paywall will not be shown if the user already has an entitlement for a product in the paywall. */
+  dontShowIfAlreadyEntitled?: boolean;
 };
 
 // --- Main Helium Configuration ---

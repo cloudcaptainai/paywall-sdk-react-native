@@ -318,7 +318,8 @@ class HeliumBridge: RCTEventEmitter {
   @objc
   public func presentUpsell(
     _ trigger: String,
-    customPaywallTraits: [String: Any]?
+    customPaywallTraits: [String: Any]?,
+    dontShowIfAlreadyEntitled: Bool
   ) {
     Helium.shared.presentUpsell(
         trigger: trigger,
@@ -342,7 +343,8 @@ class HeliumBridge: RCTEventEmitter {
                 self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             }
         ),
-        customPaywallTraits: convertMarkersToBooleans(customPaywallTraits)
+        customPaywallTraits: convertMarkersToBooleans(customPaywallTraits),
+        dontShowIfAlreadyEntitled: dontShowIfAlreadyEntitled
     );
   }
     
@@ -398,6 +400,23 @@ class HeliumBridge: RCTEventEmitter {
   }
 
   @objc
+  public func setCustomUserId(_ newUserId: String) {
+      Helium.shared.overrideUserId(newUserId: newUserId)
+  }
+
+  @objc
+  public func hasEntitlementForPaywall(
+      _ trigger: String,
+      resolver: @escaping RCTPromiseResolveBlock,
+      rejecter: @escaping RCTPromiseRejectBlock
+  ) {
+      Task {
+          let hasEntitlement = await Helium.shared.hasEntitlementForPaywall(trigger: trigger)
+          resolver(hasEntitlement)
+      }
+  }
+
+  @objc
   public func hasAnyActiveSubscription(
       _ resolver: @escaping RCTPromiseResolveBlock,
       rejecter: @escaping RCTPromiseRejectBlock
@@ -432,7 +451,7 @@ class HeliumBridge: RCTEventEmitter {
       // Convert ExperimentInfo to dictionary using JSONEncoder
       let encoder = JSONEncoder()
       guard let jsonData = try? encoder.encode(experimentInfo),
-            var dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
+            let dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
           callback([false, NSNull()])
           return
       }
@@ -462,6 +481,23 @@ class HeliumBridge: RCTEventEmitter {
   @objc
   public func resetHelium() {
       Helium.resetHelium()
+  }
+
+  @objc
+  public func setLightDarkModeOverride(_ mode: String) {
+      let heliumMode: HeliumLightDarkMode
+      switch mode.lowercased() {
+      case "light":
+          heliumMode = .light
+      case "dark":
+          heliumMode = .dark
+      case "system":
+          heliumMode = .system
+      default:
+          print("[Helium] Invalid mode: \(mode), defaulting to system")
+          heliumMode = .system
+      }
+      Helium.shared.setLightDarkModeOverride(heliumMode)
   }
 
   private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {

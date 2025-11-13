@@ -172,7 +172,6 @@ class HeliumBridge: RCTEventEmitter {
   @objc(init)
   public override init() {
       super.init()
-      PurchaseStateManager.shared.currentBridge = self
   }
   
    public override func supportedEvents() -> [String] {
@@ -196,6 +195,7 @@ class HeliumBridge: RCTEventEmitter {
         _ config: NSDictionary,
         customVariableValues: NSDictionary
     ) {
+        PurchaseStateManager.shared.currentBridge = self
         guard let apiKey = config["apiKey"] as? String else {
             return
         }

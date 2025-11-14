@@ -34,7 +34,7 @@ private class PurchaseStateManager {
     }
 
     // Always keep reference to the current bridge
-    weak var currentBridge: HeliumBridge?
+    var currentBridge: HeliumBridge?
 
     // Store pending responses for purchase/restore operations
     var pendingResponses: [String: (PurchaseResponse) -> Void] = [:]
@@ -318,6 +318,7 @@ class HeliumBridge: RCTEventEmitter {
     customPaywallTraits: [String: Any]?,
     dontShowIfAlreadyEntitled: Bool
   ) {
+    PurchaseStateManager.shared.currentBridge = self // extra redundancy to update to latest live bridge
     Helium.shared.presentUpsell(
         trigger: trigger,
         eventHandlers: PaywallEventHandlers.withHandlers(

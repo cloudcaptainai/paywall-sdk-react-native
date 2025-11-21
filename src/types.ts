@@ -72,6 +72,8 @@ export interface PaywallEventHandlers {
   onPurchaseSucceeded?: (event: PurchaseSucceededEvent) => void;
   onOpenFailed?: (event: PaywallOpenFailedEvent) => void;
   onCustomPaywallAction?: (event: CustomPaywallActionEvent) => void;
+  /** A handler that will fire for any paywall-related event. */
+  onAnyEvent?: (event: HeliumPaywallEvent) => void;
 }
 
 // Typed event interfaces

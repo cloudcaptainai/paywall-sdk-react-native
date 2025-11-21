@@ -23,32 +23,67 @@ struct UIViewWrapper: UIViewRepresentable, View {
     }
 }
 
-class PurchaseState: ObservableObject {
+// Singleton to manage purchase state that survives module deallocation
+private class PurchaseStateManager {
+    static let shared = PurchaseStateManager()
+
     struct PurchaseResponse {
         let transactionId: String
         let status: String
         let error: String?
     }
-    
-    @Published var pendingResponses: [String: (PurchaseResponse) -> Void] = [:]
+
+    // Always keep reference to the current bridge
+    var currentBridge: HeliumBridge?
+
+    // Store pending responses for purchase/restore operations
+    var pendingResponses: [String: (PurchaseResponse) -> Void] = [:]
+
+    func handlePurchaseResponse(_ response: NSDictionary) {
+        guard let transactionId = response["transactionId"] as? String,
+              let status = response["status"] as? String,
+              let callback = pendingResponses[transactionId] else {
+            return
+        }
+
+        let error = response["error"] as? String
+
+        // Remove callback before executing to prevent multiple calls
+        pendingResponses.removeValue(forKey: transactionId)
+
+        callback(PurchaseResponse(
+            transactionId: transactionId,
+            status: status,
+            error: error
+        ))
+    }
+
+    func handleRestoreResponse(_ response: NSDictionary) {
+        guard let transactionId = response["transactionId"] as? String,
+              let status = response["status"] as? String,
+              let callback = pendingResponses[transactionId] else {
+            return
+        }
+
+        // Remove callback before executing to prevent multiple calls
+        pendingResponses.removeValue(forKey: transactionId)
+
+        callback(PurchaseResponse(
+            transactionId: transactionId,
+            status: status,
+            error: nil
+        ))
+    }
 }
 
 
 class BridgingPaywallDelegate: HeliumPaywallDelegate {
-    private let purchaseState = PurchaseState()
-    private weak var bridge: HeliumBridge?
-    
-    init(
-          bridge: HeliumBridge
-      ) {
-          self.bridge = bridge
-      }
-  
+
     public func makePurchase(productId: String) async -> HeliumPaywallTransactionStatus {
           return await withCheckedContinuation { continuation in
               let transactionId = UUID().uuidString
-              // Store continuation callback
-              purchaseState.pendingResponses[transactionId] = { response in
+              // Store continuation callback in singleton
+              PurchaseStateManager.shared.pendingResponses[transactionId] = { response in
                 let userInfo: [String: Any] = [
                     NSLocalizedDescriptionKey: response.error ?? "Failed to make purchase",
                     NSLocalizedFailureReasonErrorKey: "An unknown error occurred",
@@ -67,9 +102,9 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
                   }
                   continuation.resume(returning: status)
               }
-              
-              // Send event to initiate purchase
-              bridge?.sendEvent(
+
+              // Send event to initiate purchase via singleton's bridge reference
+              PurchaseStateManager.shared.currentBridge?.sendEvent(
                   withName: "helium_make_purchase",
                   body: [
                       "productId": productId,
@@ -79,40 +114,22 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
               )
           }
       }
-      
-    func handlePurchaseResponse(_ response: NSDictionary) {
-        guard let transactionId = response["transactionId"] as? String,
-              let status = response["status"] as? String,
-              let callback = purchaseState.pendingResponses[transactionId] else {
-            return
-        }
-        
-        let error = response["error"] as? String
-        
-        // Remove callback before executing to prevent multiple calls
-        purchaseState.pendingResponses.removeValue(forKey: transactionId)
-        
-        callback(PurchaseState.PurchaseResponse(
-            transactionId: transactionId,
-            status: status,
-            error: error
-        ))
-    }
-    
-  
+
+
+
   func restorePurchases() async -> Bool {
       return await withCheckedContinuation { continuation in
           let transactionId = UUID().uuidString
-          
-          // Store continuation callback
-          purchaseState.pendingResponses[transactionId] = { response in
+
+          // Store continuation callback in singleton
+          PurchaseStateManager.shared.pendingResponses[transactionId] = { response in
               // Convert string status to bool
               let success = response.status == "restored"
               continuation.resume(returning: success)
           }
-          
-          // Send event to initiate restore
-          bridge?.sendEvent(
+
+          // Send event to initiate restore via singleton's bridge reference
+          PurchaseStateManager.shared.currentBridge?.sendEvent(
               withName: "helium_restore_purchases",
               body: [
                   "transactionId": transactionId,
@@ -122,22 +139,6 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
       }
   }
 
-  func handleRestoreResponse(_ response: NSDictionary) {
-      guard let transactionId = response["transactionId"] as? String,
-            let status = response["status"] as? String,
-            let callback = purchaseState.pendingResponses[transactionId] else {
-          return
-      }
-      
-      // Remove callback before executing to prevent multiple calls
-      purchaseState.pendingResponses.removeValue(forKey: transactionId)
-      
-      callback(PurchaseState.PurchaseResponse(
-          transactionId: transactionId,
-          status: status,
-          error: nil
-      ))
-  }
 
     func onPaywallEvent(_ event: any HeliumEvent) {
         var eventDict = event.toDictionary()
@@ -154,7 +155,7 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
         if let buttonName = eventDict["buttonName"] {
             eventDict["ctaName"] = buttonName
         }
-        bridge?.sendEvent(
+        PurchaseStateManager.shared.currentBridge?.sendEvent(
             withName: "helium_paywall_event",
             body: eventDict
         )
@@ -167,9 +168,6 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
 
 @objc(HeliumBridge)
 class HeliumBridge: RCTEventEmitter {
-   private var bridgingDelegate: BridgingPaywallDelegate?
-   var customVariables: [String: Any?] = [:]
-   private var cancellables = Set<AnyCancellable>()
 
   @objc(init)
   public override init() {
@@ -197,6 +195,7 @@ class HeliumBridge: RCTEventEmitter {
         _ config: NSDictionary,
         customVariableValues: NSDictionary
     ) {
+        PurchaseStateManager.shared.currentBridge = self
         guard let apiKey = config["apiKey"] as? String else {
             return
         }
@@ -226,7 +225,7 @@ class HeliumBridge: RCTEventEmitter {
 
         let useDefaultDelegate = config["useDefaultDelegate"] as? Bool ?? false
 
-        let delegateEventHandler: (HeliumEvent) -> Void = { [weak self] event in
+        let delegateEventHandler: (HeliumEvent) -> Void = { event in
             var eventDict = event.toDictionary()
             // Add deprecated fields for backwards compatibility
             if let paywallName = eventDict["paywallName"] {
@@ -241,15 +240,13 @@ class HeliumBridge: RCTEventEmitter {
             if let buttonName = eventDict["buttonName"] {
                 eventDict["ctaName"] = buttonName
             }
-            self?.sendEvent(
+            PurchaseStateManager.shared.currentBridge?.sendEvent(
                 withName: "helium_paywall_event",
                 body: eventDict
             )
         }
 
-        self.bridgingDelegate = BridgingPaywallDelegate(
-            bridge: self
-        )
+        let bridgingDelegate = BridgingPaywallDelegate()
 
         let defaultDelegate = DefaultPurchaseDelegate(eventHandler: delegateEventHandler)
 
@@ -271,7 +268,7 @@ class HeliumBridge: RCTEventEmitter {
 
         Helium.shared.initialize(
             apiKey: apiKey,
-            heliumPaywallDelegate: useDefaultDelegate ? defaultDelegate : self.bridgingDelegate!,
+            heliumPaywallDelegate: useDefaultDelegate ? defaultDelegate : bridgingDelegate,
             fallbackConfig: HeliumFallbackConfig.withMultipleFallbacks(
                 // As a workaround for required fallback check in iOS, supply empty fallbackPerTrigger
                 // since currently iOS requires some type of fallback but RN does not.
@@ -290,12 +287,12 @@ class HeliumBridge: RCTEventEmitter {
   
   @objc
   public func handlePurchaseResponse(_ response: NSDictionary) {
-      bridgingDelegate?.handlePurchaseResponse(response)
+      PurchaseStateManager.shared.handlePurchaseResponse(response)
   }
   
   @objc
   public func handleRestoreResponse(_ response: NSDictionary) {
-      bridgingDelegate?.handleRestoreResponse(response)
+      PurchaseStateManager.shared.handleRestoreResponse(response)
   }
 
   @objc
@@ -321,26 +318,27 @@ class HeliumBridge: RCTEventEmitter {
     customPaywallTraits: [String: Any]?,
     dontShowIfAlreadyEntitled: Bool
   ) {
+    PurchaseStateManager.shared.currentBridge = self // extra redundancy to update to latest live bridge
     Helium.shared.presentUpsell(
         trigger: trigger,
         eventHandlers: PaywallEventHandlers.withHandlers(
-            onOpen: { [weak self] event in
-                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            onOpen: { event in
+                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             },
-            onClose: { [weak self] event in
-                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            onClose: { event in
+                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             },
-            onDismissed: { [weak self] event in
-                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            onDismissed: { event in
+                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             },
-            onPurchaseSucceeded: { [weak self] event in
-                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            onPurchaseSucceeded: { event in
+                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             },
-            onOpenFailed: { [weak self] event in
-                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            onOpenFailed: { event in
+                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             },
-            onCustomPaywallAction: { [weak self] event in
-                self?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+            onCustomPaywallAction: { event in
+                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             }
         ),
         customPaywallTraits: convertMarkersToBooleans(customPaywallTraits),

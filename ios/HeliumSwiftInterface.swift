@@ -322,22 +322,7 @@ class HeliumBridge: RCTEventEmitter {
     Helium.shared.presentUpsell(
         trigger: trigger,
         eventHandlers: PaywallEventHandlers.withHandlers(
-            onOpen: { event in
-                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
-            },
-            onClose: { event in
-                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
-            },
-            onDismissed: { event in
-                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
-            },
-            onPurchaseSucceeded: { event in
-                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
-            },
-            onOpenFailed: { event in
-                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
-            },
-            onCustomPaywallAction: { event in
+            onAnyEvent: { event in
                 PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
             }
         ),

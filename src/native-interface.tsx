@@ -240,6 +240,7 @@ function callPaywallEventHandlers(event: HeliumPaywallEvent) {
         });
         break;
     }
+    paywallEventHandlers?.onAnyEvent?.(event);
   }
 }
 

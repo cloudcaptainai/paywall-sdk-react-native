@@ -52,9 +52,19 @@ export interface VariantDetails {
  */
 export interface ExperimentInfo {
   /**
-   * Trigger name at which user was enrolled
+   * @deprecated Use `enrolledTrigger` instead.
    */
-  trigger: string;
+  trigger?: string;
+
+  /**
+   * Trigger where this user was enrolled
+   */
+  enrolledTrigger?: string;
+
+  /**
+   * All triggers where this experiment is configured
+   */
+  triggers?: string[];
 
   /**
    * Experiment name

@@ -73,7 +73,6 @@
   },
   "devDependencies": {
     "@react-native/eslint-config": "^0.73.1",
-    "@release-it/conventional-changelog": "^9.0.2",
     "@types/jest": "^29.5.5",
     "@types/react": "^18.2.44",
     "del-cli": "^5.1.0",
@@ -86,7 +85,6 @@
     "react-native": "0.71.7",
     "react-native-builder-bob": "^0.37.0",
     "react-native-purchases": ">=5.1.0",
-    "release-it": "^17.10.0",
     "turbo": "^1.10.7",
     "typescript": "^5.2.2"
   },

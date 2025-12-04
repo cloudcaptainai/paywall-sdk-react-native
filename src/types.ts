@@ -1,3 +1,5 @@
+export type HeliumEnvironment = 'sandbox' | 'production';
+
 export type HeliumTransactionStatus =
   | 'purchased'
   | 'failed'
@@ -20,17 +22,39 @@ export type HeliumLightDarkMode = 'light' | 'dark' | 'system';
 /** Interface for providing custom purchase handling logic. */
 
 export interface HeliumPurchaseConfig {
-  makePurchase: (productId: string) => Promise<HeliumPurchaseResult>;
+  /**
+   * @deprecated Use makePurchaseIOS / makePurchaseAndroid instead for platform-specific handling.
+   * This method will continue to work for backward compatibility but doesn't provide Android subscription parameters.
+   */
+  makePurchase?: (productId: string) => Promise<HeliumPurchaseResult>;
+  /** iOS-specific purchase handler. Receives a simple product ID string. */
+  makePurchaseIOS?: (productId: string) => Promise<HeliumPurchaseResult>;
+  /** Android-specific purchase handler. Receives product ID and optional subscription parameters. */
+  makePurchaseAndroid?: (
+    productId: string,
+    basePlanId?: string,
+    offerId?: string
+  ) => Promise<HeliumPurchaseResult>;
+
   restorePurchases: () => Promise<boolean>;
 }
 
 // Helper function for creating Custom Purchase Config
 export function createCustomPurchaseConfig(callbacks: {
-  makePurchase: (productId: string) => Promise<HeliumPurchaseResult>;
+  /** @deprecated Use makePurchaseIOS or makePurchaseAndroid instead */
+  makePurchase?: (productId: string) => Promise<HeliumPurchaseResult>;
+  makePurchaseIOS?: (productId: string) => Promise<HeliumPurchaseResult>;
+  makePurchaseAndroid?: (
+    productId: string,
+    basePlanId?: string,
+    offerId?: string
+  ) => Promise<HeliumPurchaseResult>;
   restorePurchases: () => Promise<boolean>;
 }): HeliumPurchaseConfig {
   return {
     makePurchase: callbacks.makePurchase,
+    makePurchaseIOS: callbacks.makePurchaseIOS,
+    makePurchaseAndroid: callbacks.makePurchaseAndroid,
     restorePurchases: callbacks.restorePurchases,
   };
 }
@@ -212,6 +236,11 @@ export interface HeliumConfig {
   fallbackBundle?: object;
   /** Configure loading behavior for paywalls that are mid-download. */
   paywallLoadingConfig?: HeliumPaywallLoadingConfig;
+  /** Environment to use for Android. (iOS auto-detects this.)
+   *  If not specified, Android environment will be "sandbox" if app is a debug build, "production otherwise".
+   *  Recommended to pass in "sandbox" for QA builds that behave like a production build but are actually just for testing.
+   */
+  environment?: HeliumEnvironment;
   customUserId?: string;
   customAPIEndpoint?: string;
   customUserTraits?: Record<string, any>;

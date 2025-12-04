@@ -2,6 +2,7 @@ import {
   NativeModules,
   NativeEventEmitter,
   requireNativeComponent,
+  Platform,
 } from 'react-native';
 import type {
   HeliumConfig,
@@ -39,12 +40,7 @@ export const initialize = async (config: HeliumConfig) => {
     return;
   }
 
-  const purchaseHandler = config.purchaseConfig
-    ? {
-        makePurchase: config.purchaseConfig.makePurchase,
-        restorePurchases: config.purchaseConfig.restorePurchases,
-      }
-    : null;
+  const purchaseHandler = config.purchaseConfig ? config.purchaseConfig : null;
 
   // Update download status to inProgress
   updateDownloadStatus('inProgress');
@@ -87,8 +83,54 @@ export const initialize = async (config: HeliumConfig) => {
     // Set up purchase event listener using the determined handler
     heliumEventEmitter.addListener(
       'helium_make_purchase',
-      async (event: { productId: string; transactionId: string }) => {
-        const result = await purchaseHandler.makePurchase(event.productId);
+      async (event: {
+        productId: string;
+        basePlanId?: string;
+        offerId?: string;
+        transactionId: string;
+      }) => {
+        let result;
+        if (Platform.OS === 'ios') {
+          // iOS: Use makePurchaseIOS if available, otherwise use deprecated makePurchase
+          if (purchaseHandler.makePurchaseIOS) {
+            result = await purchaseHandler.makePurchaseIOS(event.productId);
+          } else if (purchaseHandler.makePurchase) {
+            result = await purchaseHandler.makePurchase(event.productId);
+          } else {
+            console.log('[Helium] No iOS purchase handler configured.');
+            HeliumBridge.handlePurchaseResponse({
+              transactionId: event.transactionId,
+              status: 'failed',
+              error: 'No iOS purchase handler configured.',
+            });
+            return;
+          }
+        } else if (Platform.OS === 'android') {
+          // Android: Use makePurchaseAndroid if available
+          if (purchaseHandler.makePurchaseAndroid) {
+            result = await purchaseHandler.makePurchaseAndroid(
+              event.productId,
+              event.basePlanId,
+              event.offerId
+            );
+          } else {
+            console.log('[Helium] No Android purchase handler configured.');
+            HeliumBridge.handlePurchaseResponse({
+              transactionId: event.transactionId,
+              status: 'failed',
+              error: 'No Android purchase handler configured.',
+            });
+            return;
+          }
+        } else {
+          HeliumBridge.handlePurchaseResponse({
+            transactionId: event.transactionId,
+            status: 'failed',
+            error: 'Unsupported platform.',
+          });
+          return;
+        }
+
         HeliumBridge.handlePurchaseResponse({
           transactionId: event.transactionId,
           status: result.status,

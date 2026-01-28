@@ -14,11 +14,11 @@ import Combine
 
 struct UIViewWrapper: UIViewRepresentable, View {
     let view: UIView
-    
+
     func makeUIView(context: Context) -> UIView {
         return view
     }
-    
+
     func updateUIView(_ uiView: UIView, context: Context) {
     }
 }
@@ -160,7 +160,7 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
             body: eventDict
         )
     }
-    
+
     func getCustomVariableValues() -> [String: Any?] {
         return [:];
     }
@@ -173,7 +173,7 @@ class HeliumBridge: RCTEventEmitter {
   public override init() {
       super.init()
   }
-  
+
    public override func supportedEvents() -> [String] {
        return [
            "helium_paywall_event",
@@ -184,12 +184,12 @@ class HeliumBridge: RCTEventEmitter {
            "paywallEventHandlers"
        ]
    }
-   
+
    @objc
    override static func requiresMainQueueSetup() -> Bool {
        return true
    }
-   
+
     @objc
     public func initialize(
         _ config: NSDictionary,
@@ -266,6 +266,10 @@ class HeliumBridge: RCTEventEmitter {
             }
         }
 
+        // todo pass in extracted version
+//         let wrapperSdkVersion = config["wrapperSdkVersion"] as? String ?? "unknown"
+        HeliumSdkConfig.shared.setWrapperSdkInfo(sdk: "old-expo", version: "3.0.20")
+
         Helium.shared.initialize(
             apiKey: apiKey,
             heliumPaywallDelegate: useDefaultDelegate ? defaultDelegate : bridgingDelegate,
@@ -284,12 +288,12 @@ class HeliumBridge: RCTEventEmitter {
             revenueCatAppUserId: revenueCatAppUserId
         )
     }
-  
+
   @objc
   public func handlePurchaseResponse(_ response: NSDictionary) {
       PurchaseStateManager.shared.handlePurchaseResponse(response)
   }
-  
+
   @objc
   public func handleRestoreResponse(_ response: NSDictionary) {
       PurchaseStateManager.shared.handleRestoreResponse(response)
@@ -300,7 +304,7 @@ class HeliumBridge: RCTEventEmitter {
     let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames();
     callback([triggerNames])
   }
-    
+
    @objc
    public func upsellViewForTrigger(
        _ trigger: String,
@@ -330,7 +334,7 @@ class HeliumBridge: RCTEventEmitter {
         dontShowIfAlreadyEntitled: dontShowIfAlreadyEntitled
     );
   }
-    
+
   @objc
   public func hideUpsell() {
     _ = Helium.shared.hideUpsell();
@@ -347,7 +351,9 @@ class HeliumBridge: RCTEventEmitter {
     isOpen: Bool,
     viewType: String?
   ) {
-    HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType, fallbackReason: .bridgingError)
+      // Taking this out for now, there is no instance of it firing and method is no longer exposed
+      // by native SDK
+//     HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType, fallbackReason: .bridgingError)
   }
 
   @objc

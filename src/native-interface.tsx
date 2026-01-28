@@ -377,7 +377,15 @@ export const getExperimentInfoForTrigger = async (
  * Reset Helium entirely so you can call initialize again. Only for advanced use cases.
  */
 export const resetHelium = () => {
+  paywallEventHandlers = undefined;
+  presentOnFallback = undefined;
+  heliumEventEmitter.removeAllListeners('helium_paywall_event');
+  heliumEventEmitter.removeAllListeners('paywallEventHandlers');
+  heliumEventEmitter.removeAllListeners('helium_make_purchase');
+  heliumEventEmitter.removeAllListeners('helium_restore_purchases');
   HeliumBridge.resetHelium();
+  globalDownloadStatus = 'notStarted';
+  isInitialized = false;
 };
 
 /**

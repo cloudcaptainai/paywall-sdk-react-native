@@ -104,6 +104,9 @@ jobs:
 
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     needs: [check-version, get-current-version, test, release]
     if: always() && (needs.check-version.outputs.version-changed == 'true' || github.event_name == 'workflow_dispatch')
     steps:
@@ -124,8 +127,6 @@ jobs:
         run: yarn prepare
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_KEY }}
         run: npm publish
 
       - name: Success output

@@ -60,14 +60,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cloudcaptainai/helium-react-native-sdk.git"
+    "url": "git+https://github.com/cloudcaptainai/paywall-sdk-react-native.git"
   },
   "author": "Anish Doshi <anish@tryhelium.com> (https://tryhelium.com)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/cloudcaptainai/helium-react-native-sdk/issues"
+    "url": "https://github.com/cloudcaptainai/paywall-sdk-react-native/issues"
   },
-  "homepage": "https://github.com/cloudcaptainai/helium-react-native-sdk#readme",
+  "homepage": "https://github.com/cloudcaptainai/paywall-sdk-react-native#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },

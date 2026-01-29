@@ -16,6 +16,13 @@ import type {
 import type { ExperimentInfo } from './HeliumExperimentInfo.types';
 
 const { HeliumBridge } = NativeModules;
+
+let SDK_VERSION = 'unknown';
+try {
+  SDK_VERSION = require('../package.json').version;
+} catch {
+  // package.json can't be loaded, accept that we won't get wrapper sdk version
+}
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 // Register the native component once at module level
@@ -148,6 +155,7 @@ export const initialize = async (config: HeliumConfig) => {
         config.paywallLoadingConfig
       ),
       useDefaultDelegate: !config.purchaseConfig,
+      wrapperSdkVersion: SDK_VERSION,
     },
     {}
   );

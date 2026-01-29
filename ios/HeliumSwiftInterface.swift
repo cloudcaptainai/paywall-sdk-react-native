@@ -333,9 +333,8 @@ class HeliumBridge: RCTEventEmitter {
             }
         }
 
-        // todo pass in extracted version
-//         let wrapperSdkVersion = config["wrapperSdkVersion"] as? String ?? "unknown"
-        HeliumSdkConfig.shared.setWrapperSdkInfo(sdk: "old-expo", version: "3.0.20")
+        let wrapperSdkVersion = config["wrapperSdkVersion"] as? String ?? "unknown"
+        HeliumSdkConfig.shared.setWrapperSdkInfo(sdk: "old-expo", version: wrapperSdkVersion)
 
         Helium.shared.initialize(
             apiKey: apiKey,

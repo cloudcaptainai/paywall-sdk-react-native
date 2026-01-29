@@ -19,7 +19,7 @@ const { HeliumBridge } = NativeModules;
 
 let SDK_VERSION = 'unknown';
 try {
-  SDK_VERSION = require('../package.json').version;
+  SDK_VERSION = require('@tryheliumai/paywall-sdk-react-native/package.json').version;
 } catch {
   // package.json can't be loaded, accept that we won't get wrapper sdk version
 }

@@ -45,6 +45,7 @@ export const initialize = async (config: HeliumConfig) => {
     console.log('[Helium] Already initialized, skipping...');
     return;
   }
+  isInitialized = true;
 
   const purchaseHandler = config.purchaseConfig
     ? {
@@ -159,9 +160,6 @@ export const initialize = async (config: HeliumConfig) => {
     },
     {}
   );
-
-  // Mark as initialized after successful initialization
-  isInitialized = true;
 };
 
 let paywallEventHandlers: PaywallEventHandlers | undefined;

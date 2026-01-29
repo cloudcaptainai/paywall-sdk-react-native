@@ -79,7 +79,7 @@ private class PurchaseStateManager {
 
     // Configuration
     private let maxQueuedEvents = 30
-    private let eventExpirationSeconds: TimeInterval = 30.0
+    private let eventExpirationSeconds: TimeInterval = 10.0
 
     // Event queue
     private struct PendingEvent {
@@ -99,6 +99,13 @@ private class PurchaseStateManager {
             pendingEvents.removeFirst()
         }
         pendingEvents.append(PendingEvent(eventName: eventName, eventData: eventData, timestamp: Date()))
+    }
+
+    // Clear all pending events
+    func clearPendingEvents() {
+        eventLock.lock()
+        pendingEvents.removeAll()
+        eventLock.unlock()
     }
 
     // Flush queued events to bridge
@@ -536,6 +543,7 @@ class HeliumBridge: RCTEventEmitter {
 
   @objc
   public func resetHelium() {
+      PurchaseStateManager.shared.clearPendingEvents()
       Helium.resetHelium()
   }
 

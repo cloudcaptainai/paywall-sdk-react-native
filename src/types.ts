@@ -205,7 +205,7 @@ export interface HeliumConfig {
    */
   purchaseConfig?: HeliumPurchaseConfig;
   /** Callback for receiving all Helium paywall events. */
-  onHeliumPaywallEvent: (event: HeliumPaywallEvent) => void;
+  onHeliumPaywallEvent?: (event: HeliumPaywallEvent) => void;
 
   // Optional configurations
   /** Fallback bundle in the rare situation that paywall is not ready to be shown. Highly recommended. See docs at https://docs.tryhelium.com/guides/fallback-bundle#react-native */

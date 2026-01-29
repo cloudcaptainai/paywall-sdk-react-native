@@ -70,7 +70,7 @@ export const initialize = async (config: HeliumConfig) => {
       handlePaywallEvent(event);
 
       // Forward all events to the callback provided in config
-      config.onHeliumPaywallEvent(event);
+      config.onHeliumPaywallEvent?.(event);
     }
   );
 

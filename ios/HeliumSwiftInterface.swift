@@ -74,6 +74,78 @@ private class PurchaseStateManager {
             error: nil
         ))
     }
+
+    // MARK: - Event Queuing
+
+    // Configuration
+    private let maxQueuedEvents = 30
+    private let eventExpirationSeconds: TimeInterval = 30.0
+
+    // Event queue
+    private struct PendingEvent {
+        let eventName: String
+        let eventData: [String: Any]
+        let timestamp: Date
+    }
+    private var pendingEvents: [PendingEvent] = []
+    private let eventLock = NSLock()
+
+    // Queue an event for later delivery
+    private func queueEvent(eventName: String, eventData: [String: Any]) {
+        eventLock.lock()
+        defer { eventLock.unlock() }
+
+        if pendingEvents.count >= maxQueuedEvents {
+            pendingEvents.removeFirst()
+        }
+        pendingEvents.append(PendingEvent(eventName: eventName, eventData: eventData, timestamp: Date()))
+    }
+
+    // Flush queued events to bridge
+    func flushEvents(bridge: HeliumBridge) {
+        eventLock.lock()
+        guard !pendingEvents.isEmpty else {
+            eventLock.unlock()
+            return
+        }
+        let eventsToSend = pendingEvents
+        pendingEvents.removeAll()
+        eventLock.unlock()
+
+        let now = Date()
+        for event in eventsToSend {
+            if now.timeIntervalSince(event.timestamp) > eventExpirationSeconds {
+                continue // Drop stale events
+            }
+            let success = ObjCExceptionCatcher.execute {
+                bridge.sendEvent(withName: event.eventName, body: event.eventData)
+            }
+            if !success {
+                // Re-queue failed events
+                eventLock.lock()
+                if pendingEvents.count < maxQueuedEvents {
+                    pendingEvents.append(event)
+                }
+                eventLock.unlock()
+            }
+        }
+    }
+
+    // Safe event sending with exception catching and backup queue
+    func safeSendEvent(eventName: String, eventData: [String: Any]) {
+        guard let bridge = currentBridge else {
+            queueEvent(eventName: eventName, eventData: eventData)
+            return
+        }
+
+        let success = ObjCExceptionCatcher.execute {
+            bridge.sendEvent(withName: eventName, body: eventData)
+        }
+
+        if !success {
+            queueEvent(eventName: eventName, eventData: eventData)
+        }
+    }
 }
 
 
@@ -104,9 +176,9 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
               }
 
               // Send event to initiate purchase via singleton's bridge reference
-              PurchaseStateManager.shared.currentBridge?.sendEvent(
-                  withName: "helium_make_purchase",
-                  body: [
+              PurchaseStateManager.shared.safeSendEvent(
+                  eventName: "helium_make_purchase",
+                  eventData: [
                       "productId": productId,
                       "transactionId": transactionId,
                       "status": "starting"
@@ -129,9 +201,9 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
           }
 
           // Send event to initiate restore via singleton's bridge reference
-          PurchaseStateManager.shared.currentBridge?.sendEvent(
-              withName: "helium_restore_purchases",
-              body: [
+          PurchaseStateManager.shared.safeSendEvent(
+              eventName: "helium_restore_purchases",
+              eventData: [
                   "transactionId": transactionId,
                   "status": "starting"
               ]
@@ -155,10 +227,7 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
         if let buttonName = eventDict["buttonName"] {
             eventDict["ctaName"] = buttonName
         }
-        PurchaseStateManager.shared.currentBridge?.sendEvent(
-            withName: "helium_paywall_event",
-            body: eventDict
-        )
+        PurchaseStateManager.shared.safeSendEvent(eventName: "helium_paywall_event", eventData: eventDict)
     }
 
     func getCustomVariableValues() -> [String: Any?] {
@@ -196,6 +265,7 @@ class HeliumBridge: RCTEventEmitter {
         customVariableValues: NSDictionary
     ) {
         PurchaseStateManager.shared.currentBridge = self
+        PurchaseStateManager.shared.flushEvents(bridge: self)
         guard let apiKey = config["apiKey"] as? String else {
             return
         }
@@ -240,10 +310,7 @@ class HeliumBridge: RCTEventEmitter {
             if let buttonName = eventDict["buttonName"] {
                 eventDict["ctaName"] = buttonName
             }
-            PurchaseStateManager.shared.currentBridge?.sendEvent(
-                withName: "helium_paywall_event",
-                body: eventDict
-            )
+            PurchaseStateManager.shared.safeSendEvent(eventName: "helium_paywall_event", eventData: eventDict)
         }
 
         let bridgingDelegate = BridgingPaywallDelegate()
@@ -323,11 +390,12 @@ class HeliumBridge: RCTEventEmitter {
     dontShowIfAlreadyEntitled: Bool
   ) {
     PurchaseStateManager.shared.currentBridge = self // extra redundancy to update to latest live bridge
+    PurchaseStateManager.shared.flushEvents(bridge: self)
     Helium.shared.presentUpsell(
         trigger: trigger,
         eventHandlers: PaywallEventHandlers.withHandlers(
             onAnyEvent: { event in
-                PurchaseStateManager.shared.currentBridge?.sendEvent(withName: "paywallEventHandlers", body: event.toDictionary())
+                PurchaseStateManager.shared.safeSendEvent(eventName: "paywallEventHandlers", eventData: event.toDictionary())
             }
         ),
         customPaywallTraits: convertMarkersToBooleans(customPaywallTraits),

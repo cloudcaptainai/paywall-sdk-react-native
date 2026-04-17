@@ -93,13 +93,6 @@ export function createCustomPurchaseConfig(callbacks: {
   };
 }
 
-export type TriggerLoadingConfig = {
-  /** Whether to show loading state for this trigger. Set to nil to use the global `useLoadingState` setting. */
-  useLoadingState?: boolean;
-  /** Maximum seconds to show loading for this trigger. Set to nil to use the global `loadingBudget` setting. */
-  loadingBudget?: number;
-};
-
 export type HeliumPaywallLoadingConfig = {
   /**
    * Whether to show a loading state while fetching paywall configuration.
@@ -113,13 +106,6 @@ export type HeliumPaywallLoadingConfig = {
    * Default: 7.0 seconds
    */
   loadingBudget?: number;
-  /**
-   * Optional per-trigger loading configuration overrides.
-   * Use this to customize loading behavior for specific triggers.
-   * Keys are trigger names, values are TriggerLoadingConfig instances.
-   * Example: Disable loading for "onboarding" trigger while keeping it for others.
-   */
-  perTriggerLoadingConfig?: Record<string, TriggerLoadingConfig>;
 };
 
 // Event handler types for per-presentation event handling
@@ -267,6 +253,13 @@ export type PresentUpsellParams = {
 };
 
 // --- Main Helium Configuration ---
+/**
+ * All fields on this config — including `purchaseConfig` and `onHeliumPaywallEvent` —
+ * are captured at `initialize()` time. Mutating them on the same object after
+ * initialize, or passing a new config to a later `initialize()` call, has no effect:
+ * `initialize` is idempotent. To swap callbacks or purchase handling, call
+ * `resetHelium()` followed by `initialize()` with the new config.
+ */
 export interface HeliumConfig {
   /** Your Helium API Key */
   apiKey: string;
@@ -301,7 +294,7 @@ export interface HeliumConfig {
   androidConsumableProductIds?: string[];
 }
 
-/** Shape sent across the native bridge to initialize/setupCore. */
+/** Shape sent across the native bridge to `initialize`. */
 export interface NativeHeliumConfig {
   apiKey: string;
   customUserId?: string;
@@ -327,11 +320,6 @@ export interface ResetHeliumOptions {
 
 // --- Other Existing Types ---
 
-export interface HeliumUpsellViewProps {
-  trigger: string;
-  style?: any;
-}
-
 export interface PaywallInfo {
   paywallTemplateName: string;
   shouldShow: boolean;
@@ -340,4 +328,4 @@ export interface PaywallInfo {
 export const HELIUM_CTA_NAMES = {
   SCHEDULE_CALL: 'schedule_call',
   SUBSCRIBE_BUTTON: 'subscribe_button',
-};
+} as const;

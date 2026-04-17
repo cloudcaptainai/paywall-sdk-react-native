@@ -15,7 +15,7 @@ React Native SDK for Helium paywalls. Supports bare React Native and Expo 49–5
 
 Relevant files for bridge changes:
 - `src/index.ts` — public API re-exports
-- `src/native-interface.tsx` — JS bridge calls (`NativeModules.HeliumBridge`, `NativeEventEmitter`, `requireNativeComponent('HeliumUpsellView')`)
+- `src/native-interface.tsx` — JS bridge calls (`NativeModules.HeliumBridge`, `NativeEventEmitter`)
 - `src/types.ts`, `src/HeliumExperimentInfo.types.ts` — TypeScript types
 - `ios/RCTHeliumBridge.m` — ObjC `RCT_EXTERN_METHOD` declarations (source of truth for iOS arg order)
 - `ios/HeliumSwiftInterface.swift` — iOS Swift implementation

@@ -19,10 +19,7 @@ RCT_EXTERN_METHOD(
     presentUpsell:(NSString *)trigger
     customPaywallTraits:(NSDictionary *)customPaywallTraits
     dontShowIfAlreadyEntitled:(BOOL)dontShowIfAlreadyEntitled
-)
-
-RCT_EXTERN_METHOD(
-    getFetchedTriggerNames: (RCTResponseSenderBlock)callback
+    androidDisableSystemBackNavigation:(BOOL)androidDisableSystemBackNavigation
 )
 
 RCT_EXTERN_METHOD(
@@ -31,6 +28,11 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
     hideAllUpsells
+)
+
+RCT_EXTERN_METHOD(
+    getDownloadStatus:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
 )
 
 RCT_EXTERN_METHOD(
@@ -53,12 +55,14 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
     getPaywallInfo:(NSString *)trigger
-    callback:(RCTResponseSenderBlock)callback
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
 )
 
 RCT_EXTERN_METHOD(
     handleDeepLink:(NSString *)urlString
-    callback:(RCTResponseSenderBlock)callback
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
 )
 
 RCT_EXTERN_METHOD(
@@ -67,6 +71,10 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
     setCustomUserId:(NSString *)newUserId
+)
+
+RCT_EXTERN_METHOD(
+    setThirdPartyAnalyticsAnonymousId:(NSString *)anonymousId
 )
 
 RCT_EXTERN_METHOD(
@@ -87,7 +95,8 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
     getExperimentInfoForTrigger:(NSString *)trigger
-    callback:(RCTResponseSenderBlock)callback
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
 )
 
 RCT_EXTERN_METHOD(
@@ -101,7 +110,11 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
-    resetHelium
+    resetHelium:(BOOL)clearUserTraits
+    clearHeliumEventListeners:(BOOL)clearHeliumEventListeners
+    clearExperimentAllocations:(BOOL)clearExperimentAllocations
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
 )
 
 RCT_EXTERN_METHOD(

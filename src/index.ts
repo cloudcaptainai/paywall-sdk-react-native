@@ -20,5 +20,4 @@ export {
   setCustomRestoreFailedStrings,
   disableRestoreFailedDialog,
   setLightDarkModeOverride,
-  NativeHeliumUpsellView,
 } from './native-interface';

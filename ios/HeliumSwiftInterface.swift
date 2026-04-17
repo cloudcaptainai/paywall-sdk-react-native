@@ -243,10 +243,7 @@ class HeliumBridge: RCTEventEmitter {
    }
 
     @objc
-    public func initialize(
-        _ config: NSDictionary,
-        customVariableValues: NSDictionary
-    ) {
+    public func initialize(_ config: NSDictionary) {
         PurchaseStateManager.shared.currentBridge = self
         PurchaseStateManager.shared.flushEvents(bridge: self)
         guard let apiKey = config["apiKey"] as? String else {

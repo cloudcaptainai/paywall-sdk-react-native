@@ -13,7 +13,6 @@
 
 RCT_EXTERN_METHOD(
     initialize:(NSDictionary *)config
-    customVariableValues:(NSDictionary *)config
 )
 
 RCT_EXTERN_METHOD(

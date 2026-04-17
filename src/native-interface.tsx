@@ -37,6 +37,20 @@ export const NativeHeliumUpsellView =
 
 let isInitialized = false;
 
+const HELIUM_EVENT_NAMES = [
+  'onHeliumPaywallEvent',
+  'onDelegateActionEvent',
+  'paywallEventHandlers',
+  'onHeliumLogEvent',
+  'onEntitledEvent',
+] as const;
+
+const removeAllHeliumListeners = () => {
+  for (const name of HELIUM_EVENT_NAMES) {
+    heliumEventEmitter.removeAllListeners(name);
+  }
+};
+
 // JS-side download status mirror. TODO(native): replace with a native
 // `HeliumBridge.getDownloadStatus()` call (as in the Expo module SDK) so this
 // doesn't drift if events are missed.
@@ -50,11 +64,7 @@ const updateDownloadStatus = (status: HeliumDownloadStatus) => {
 function setupEventListeners(config: HeliumConfig) {
   // TODO(native): iOS/Android must emit onHeliumLogEvent and onEntitledEvent
   // under these exact names to match the Expo module SDK (not yet wired).
-  heliumEventEmitter.removeAllListeners('onHeliumPaywallEvent');
-  heliumEventEmitter.removeAllListeners('onDelegateActionEvent');
-  heliumEventEmitter.removeAllListeners('paywallEventHandlers');
-  heliumEventEmitter.removeAllListeners('onHeliumLogEvent');
-  heliumEventEmitter.removeAllListeners('onEntitledEvent');
+  removeAllHeliumListeners();
 
   heliumEventEmitter.addListener(
     'onHeliumPaywallEvent',
@@ -213,13 +223,15 @@ const buildNativeConfig = async (
 export const initialize = async (config: HeliumConfig) => {
   if (isInitialized) return;
   isInitialized = true;
-  setupEventListeners(config);
   try {
+    setupEventListeners(config);
     const nativeConfig = await buildNativeConfig(config);
     // TODO(native): iOS/Android initialize now takes a single NativeHeliumConfig
     // object (no second arg), matching the Expo module SDK.
     HeliumBridge.initialize(nativeConfig);
   } catch (error) {
+    isInitialized = false;
+    removeAllHeliumListeners();
     console.error('[Helium] Initialization failed:', error);
   }
 };
@@ -516,25 +528,21 @@ export const resetHelium = async (
   paywallEventHandlers = undefined;
   presentOnPaywallUnavailable = undefined;
   presentOnEntitled = undefined;
-  heliumEventEmitter.removeAllListeners('onHeliumPaywallEvent');
-  heliumEventEmitter.removeAllListeners('onDelegateActionEvent');
-  heliumEventEmitter.removeAllListeners('paywallEventHandlers');
-  heliumEventEmitter.removeAllListeners('onHeliumLogEvent');
-  heliumEventEmitter.removeAllListeners('onEntitledEvent');
+  removeAllHeliumListeners();
 
   try {
     // TODO(native): HeliumBridge.resetHelium(clearUserTraits, clearHeliumEventListeners, clearExperimentAllocations)
     // should be a promise-returning 3-arg call (currently sync, no args).
     await HeliumBridge.resetHelium(
       options?.clearUserTraits ?? true,
-      true,
+      true, // always clear for now, these listeners are not yet exposed to RN
       options?.clearExperimentAllocations ?? false
     );
   } catch (e) {
-    console.warn(
-      '[Helium] resetHelium did not receive native completion:',
-      e
-    );
+    // Native reset likely completed; the async bridge response may have been
+    // lost (e.g. coroutine cancellation during module teardown). JS state is
+    // cleaned up below regardless.
+    console.warn('[Helium] resetHelium did not receive native completion:', e);
   } finally {
     globalDownloadStatus = 'notDownloadedYet';
     isInitialized = false;

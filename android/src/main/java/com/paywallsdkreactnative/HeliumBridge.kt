@@ -102,7 +102,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     // -------------------------------------------------------------------------
 
     @ReactMethod
-    fun initialize(config: ReadableMap, customVariableValues: ReadableMap) {
+    fun initialize(config: ReadableMap) {
         BridgeStateManager.currentBridge = this
 
         val apiKey = config.getString("apiKey") ?: return

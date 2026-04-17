@@ -13,7 +13,6 @@
 
 RCT_EXTERN_METHOD(
     initialize:(NSDictionary *)config
-    customVariableValues:(NSDictionary *)config
 )
 
 RCT_EXTERN_METHOD(
@@ -35,11 +34,15 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
-    handlePurchaseResponse:(NSDictionary *)response
+    handlePurchaseResult:(NSString *)statusString
+    error:(NSString *)errorMsg
+    transactionId:(NSString *)transactionId
+    originalTransactionId:(NSString *)originalTransactionId
+    productId:(NSString *)productId
 )
 
 RCT_EXTERN_METHOD(
-    handleRestoreResponse:(NSDictionary *)response
+    handleRestoreResult:(BOOL)success
 )
 
 RCT_EXTERN_METHOD(

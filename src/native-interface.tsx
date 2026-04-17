@@ -9,10 +9,14 @@ import type {
   HeliumUpsellViewProps,
   HeliumDownloadStatus,
   HeliumLightDarkMode,
+  HeliumLogEvent,
+  DelegateActionEvent,
+  NativeHeliumConfig,
   PaywallInfo,
   PresentUpsellParams,
   PaywallEventHandlers,
   HeliumPaywallEvent,
+  ResetHeliumOptions,
 } from './types';
 import type { ExperimentInfo } from './HeliumExperimentInfo.types';
 
@@ -24,61 +28,141 @@ try {
 } catch {
   // package.json can't be loaded, accept that we won't get wrapper sdk version
 }
+
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 // Register the native component once at module level
 export const NativeHeliumUpsellView =
   requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
 
-// Add a flag to track if initialization has occurred
 let isInitialized = false;
-// Add module-level download status tracking
-let globalDownloadStatus: HeliumDownloadStatus = 'notStarted';
+
+const HELIUM_EVENT_NAMES = [
+  'onHeliumPaywallEvent',
+  'onDelegateActionEvent',
+  'paywallEventHandlers',
+  'onHeliumLogEvent',
+  'onEntitledEvent',
+] as const;
+
+const removeAllHeliumListeners = () => {
+  for (const name of HELIUM_EVENT_NAMES) {
+    heliumEventEmitter.removeAllListeners(name);
+  }
+};
+
+// JS-side download status mirror. TODO(native): replace with a native
+// `HeliumBridge.getDownloadStatus()` call (as in the Expo module SDK) so this
+// doesn't drift if events are missed.
+let globalDownloadStatus: HeliumDownloadStatus = 'notDownloadedYet';
 export const getDownloadStatus = () => globalDownloadStatus;
 
 const updateDownloadStatus = (status: HeliumDownloadStatus) => {
   globalDownloadStatus = status;
 };
 
-export const initialize = async (config: HeliumConfig) => {
-  // Early return if already initialized
-  if (isInitialized) {
-    console.log('[Helium] Already initialized, skipping...');
-    return;
-  }
-  isInitialized = true;
+function setupEventListeners(config: HeliumConfig) {
+  // TODO(native): iOS/Android must emit onHeliumLogEvent and onEntitledEvent
+  // under these exact names to match the Expo module SDK (not yet wired).
+  removeAllHeliumListeners();
 
-  const purchaseHandler = config.purchaseConfig ? config.purchaseConfig : null;
-
-  // Update download status to inProgress
-  updateDownloadStatus('inProgress');
-
-  // Ensure these don't get added more than once
-  heliumEventEmitter.removeAllListeners('helium_paywall_event');
-  heliumEventEmitter.removeAllListeners('paywallEventHandlers');
-  heliumEventEmitter.removeAllListeners('helium_make_purchase');
-  heliumEventEmitter.removeAllListeners('helium_restore_purchases');
-
-  // Set up event listeners
   heliumEventEmitter.addListener(
-    'helium_paywall_event',
+    'onHeliumPaywallEvent',
     (event: HeliumPaywallEvent) => {
-      // Handle download status events
       if (event.type === 'paywallsDownloadSuccess') {
-        updateDownloadStatus('success');
+        updateDownloadStatus('downloadSuccess');
       } else if (event.type === 'paywallsDownloadError') {
-        updateDownloadStatus('failed');
+        updateDownloadStatus('downloadFailure');
       }
 
-      // Handle internal event logic first
       handlePaywallEvent(event);
-
-      // Forward all events to the callback provided in config
-      config.onHeliumPaywallEvent?.(event);
+      try {
+        config.purchaseConfig?.onHeliumEvent?.(event);
+      } catch {}
+      try {
+        config.onHeliumPaywallEvent?.(event);
+      } catch {}
     }
   );
 
-  // Set up paywall event handlers listener
+  const purchaseConfig = config.purchaseConfig;
+  if (purchaseConfig) {
+    heliumEventEmitter.addListener(
+      'onDelegateActionEvent',
+      async (event: DelegateActionEvent) => {
+        try {
+          if (event.type === 'purchase') {
+            if (!event.productId) {
+              HeliumBridge.handlePurchaseResult(
+                'failed',
+                'No product ID for purchase event.'
+              );
+              return;
+            }
+
+            let result;
+
+            if (Platform.OS === 'ios') {
+              if (purchaseConfig.makePurchaseIOS) {
+                result = await purchaseConfig.makePurchaseIOS(event.productId);
+              } else if (purchaseConfig.makePurchase) {
+                result = await purchaseConfig.makePurchase(event.productId);
+              } else {
+                console.log('[Helium] No iOS purchase handler configured.');
+                HeliumBridge.handlePurchaseResult(
+                  'failed',
+                  'No iOS purchase handler configured.'
+                );
+                return;
+              }
+            } else if (Platform.OS === 'android') {
+              if (purchaseConfig.makePurchaseAndroid) {
+                result = await purchaseConfig.makePurchaseAndroid(
+                  event.productId,
+                  event.basePlanId,
+                  event.offerId
+                );
+              } else {
+                console.log('[Helium] No Android purchase handler configured.');
+                HeliumBridge.handlePurchaseResult(
+                  'failed',
+                  'No Android purchase handler configured.'
+                );
+                return;
+              }
+            } else {
+              HeliumBridge.handlePurchaseResult(
+                'failed',
+                'Unsupported platform.'
+              );
+              return;
+            }
+
+            HeliumBridge.handlePurchaseResult(
+              result.status,
+              result.error,
+              result.transactionId,
+              result.originalTransactionId,
+              result.productId ?? event.productId
+            );
+          } else if (event.type === 'restore') {
+            const success = await purchaseConfig.restorePurchases();
+            HeliumBridge.handleRestoreResult(success);
+          }
+        } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
+          if (event.type === 'purchase') {
+            console.log('[Helium] Unexpected error: ', error);
+            HeliumBridge.handlePurchaseResult('failed', errorMsg);
+          } else if (event.type === 'restore') {
+            HeliumBridge.handleRestoreResult(false);
+          }
+        }
+      }
+    );
+  }
+
   heliumEventEmitter.addListener(
     'paywallEventHandlers',
     (event: HeliumPaywallEvent) => {
@@ -86,147 +170,103 @@ export const initialize = async (config: HeliumConfig) => {
     }
   );
 
-  // Set up purchase event listeners only if we have a purchase handler
-  if (purchaseHandler) {
-    // Set up purchase event listener using the determined handler
-    heliumEventEmitter.addListener(
-      'helium_make_purchase',
-      async (event: {
-        productId: string;
-        basePlanId?: string;
-        offerId?: string;
-        transactionId: string;
-      }) => {
-        let result;
-        if (Platform.OS === 'ios') {
-          // iOS: Use makePurchaseIOS if available, otherwise use deprecated makePurchase
-          if (purchaseHandler.makePurchaseIOS) {
-            result = await purchaseHandler.makePurchaseIOS(event.productId);
-          } else if (purchaseHandler.makePurchase) {
-            result = await purchaseHandler.makePurchase(event.productId);
-          } else {
-            console.log('[Helium] No iOS purchase handler configured.');
-            HeliumBridge.handlePurchaseResponse({
-              transactionId: event.transactionId,
-              status: 'failed',
-              error: 'No iOS purchase handler configured.',
-            });
-            return;
-          }
-        } else if (Platform.OS === 'android') {
-          // Android: Use makePurchaseAndroid if available
-          if (purchaseHandler.makePurchaseAndroid) {
-            result = await purchaseHandler.makePurchaseAndroid(
-              event.productId,
-              event.basePlanId,
-              event.offerId
-            );
-          } else {
-            console.log('[Helium] No Android purchase handler configured.');
-            HeliumBridge.handlePurchaseResponse({
-              transactionId: event.transactionId,
-              status: 'failed',
-              error: 'No Android purchase handler configured.',
-            });
-            return;
-          }
-        } else {
-          HeliumBridge.handlePurchaseResponse({
-            transactionId: event.transactionId,
-            status: 'failed',
-            error: 'Unsupported platform.',
-          });
-          return;
-        }
+  heliumEventEmitter.addListener('onHeliumLogEvent', (event: HeliumLogEvent) => {
+    logHeliumEvent(event);
+  });
 
-        HeliumBridge.handlePurchaseResponse({
-          transactionId: event.transactionId,
-          status: result.status,
-          error: result.error,
-        });
-      }
-    );
+  heliumEventEmitter.addListener('onEntitledEvent', () => {
+    presentOnEntitled?.();
+    presentOnEntitled = undefined;
+  });
+}
 
-    // Set up restore purchases event listener using the determined handler
-    heliumEventEmitter.addListener(
-      'helium_restore_purchases',
-      async (event: { transactionId: string }) => {
-        const success = await purchaseHandler.restorePurchases();
-        HeliumBridge.handleRestoreResponse({
-          transactionId: event.transactionId,
-          status: success ? 'restored' : 'failed',
-        });
-      }
-    );
-  }
-
-  let fallbackBundleUrlString;
-  let fallbackBundleString;
+const buildNativeConfig = async (
+  config: HeliumConfig
+): Promise<NativeHeliumConfig> => {
+  let fallbackBundleUrlString: string | undefined;
+  let fallbackBundleString: string | undefined;
   if (config.fallbackBundle) {
     try {
+      // Expo 49–51 uses the legacy `expo-file-system` API. Expo 52+ is handled
+      // by the separate Expo-modules SDK, so we don't branch on the new API here.
       const ExpoFileSystem = require('expo-file-system');
 
       const jsonContent = JSON.stringify(config.fallbackBundle);
-
-      // Write to documents directory
       fallbackBundleUrlString = `${ExpoFileSystem.documentDirectory}helium-fallback.json`;
       await ExpoFileSystem.writeAsStringAsync(
         fallbackBundleUrlString,
         jsonContent
       );
     } catch (error) {
-      // Fallback to string approach if expo-file-system isn't available
       console.log(
-        '[Helium] expo-file-system not available, attempting to pass fallback bundle as string.'
+        '[Helium] expo-file-system not available, passing fallback bundle as string.'
       );
       fallbackBundleString = JSON.stringify(config.fallbackBundle);
     }
   }
 
-  HeliumBridge.initialize(
-    {
-      apiKey: config.apiKey,
-      customUserId: config.customUserId || null,
-      customAPIEndpoint: config.customAPIEndpoint || null,
-      customUserTraits: convertBooleansToMarkers(
-        config.customUserTraits == null ? {} : config.customUserTraits
-      ),
-      revenueCatAppUserId: config.revenueCatAppUserId,
-      fallbackBundleUrlString: fallbackBundleUrlString,
-      fallbackBundleString: fallbackBundleString,
-      paywallLoadingConfig: convertBooleansToMarkers(
-        config.paywallLoadingConfig
-      ),
-      useDefaultDelegate: !config.purchaseConfig,
-      wrapperSdkVersion: SDK_VERSION,
-      environment: config.environment,
-    },
-    {}
-  );
+  return {
+    apiKey: config.apiKey,
+    customUserId: config.customUserId,
+    customAPIEndpoint: config.customAPIEndpoint,
+    customUserTraits: convertBooleansToMarkers(config.customUserTraits),
+    revenueCatAppUserId: config.revenueCatAppUserId,
+    fallbackBundleUrlString,
+    fallbackBundleString,
+    paywallLoadingConfig: convertBooleansToMarkers(config.paywallLoadingConfig),
+    useDefaultDelegate: !config.purchaseConfig,
+    environment: config.environment,
+    wrapperSdkVersion: SDK_VERSION,
+    delegateType: config.purchaseConfig?._delegateType,
+    androidConsumableProductIds: config.androidConsumableProductIds,
+  };
+};
+
+export const initialize = async (config: HeliumConfig) => {
+  if (isInitialized) return;
+  isInitialized = true;
+  try {
+    setupEventListeners(config);
+    const nativeConfig = await buildNativeConfig(config);
+    // TODO(native): iOS/Android initialize now takes a single NativeHeliumConfig
+    // object (no second arg), matching the Expo module SDK.
+    HeliumBridge.initialize(nativeConfig);
+  } catch (error) {
+    isInitialized = false;
+    removeAllHeliumListeners();
+    console.error('[Helium] Initialization failed:', error);
+  }
 };
 
 let paywallEventHandlers: PaywallEventHandlers | undefined;
-let presentOnFallback: (() => void) | undefined;
+let presentOnPaywallUnavailable: (() => void) | undefined;
+let presentOnEntitled: (() => void) | undefined;
 export const presentUpsell = ({
   triggerName,
-  onFallback,
   eventHandlers,
   customPaywallTraits,
   dontShowIfAlreadyEntitled,
+  androidDisableSystemBackNavigation,
+  onEntitled,
+  onPaywallUnavailable,
 }: PresentUpsellParams) => {
   try {
     paywallEventHandlers = eventHandlers;
-    presentOnFallback = onFallback;
+    presentOnPaywallUnavailable = onPaywallUnavailable;
+    presentOnEntitled = onEntitled;
+    // TODO(native): presentUpsell now accepts a 4th arg `androidDisableSystemBackNavigation`.
     HeliumBridge.presentUpsell(
       triggerName,
-      convertBooleansToMarkers(customPaywallTraits) || null,
-      dontShowIfAlreadyEntitled ?? false
+      convertBooleansToMarkers(customPaywallTraits),
+      dontShowIfAlreadyEntitled,
+      androidDisableSystemBackNavigation
     );
   } catch (error) {
     console.log('[Helium] presentUpsell error', error);
     paywallEventHandlers = undefined;
-    presentOnFallback = undefined;
-    onFallback?.();
+    presentOnPaywallUnavailable = undefined;
+    presentOnEntitled = undefined;
+    onPaywallUnavailable?.();
     HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
   }
 };
@@ -289,7 +329,9 @@ function callPaywallEventHandlers(event: HeliumPaywallEvent) {
         });
         break;
     }
-    paywallEventHandlers?.onAnyEvent?.(event);
+    try {
+      paywallEventHandlers?.onAnyEvent?.(event);
+    } catch {}
   }
 }
 
@@ -299,11 +341,11 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
       if (!event.isSecondTry) {
         paywallEventHandlers = undefined;
       }
-      presentOnFallback = undefined;
+      presentOnPaywallUnavailable = undefined;
       break;
     case 'paywallSkipped':
       paywallEventHandlers = undefined;
-      presentOnFallback = undefined;
+      presentOnPaywallUnavailable = undefined;
       break;
     case 'paywallOpenFailed':
       paywallEventHandlers = undefined;
@@ -314,9 +356,36 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
         unavailableReason !== 'secondTryNoMatch'
       ) {
         console.log('[Helium] paywall open failed', unavailableReason);
-        presentOnFallback?.();
+        presentOnPaywallUnavailable?.();
       }
-      presentOnFallback = undefined;
+      presentOnPaywallUnavailable = undefined;
+      break;
+  }
+}
+
+/**
+ * Routes native SDK log events to the appropriate console method.
+ * Log levels: 1=error, 2=warn, 3=info, 4=debug, 5=trace
+ */
+function logHeliumEvent(event: HeliumLogEvent) {
+  const { level, message } = event;
+  const metadata = event.metadata ?? {};
+  const hasMetadata = Object.keys(metadata).length > 0;
+
+  switch (level) {
+    case 1:
+      hasMetadata ? console.error(message, metadata) : console.error(message);
+      break;
+    case 2:
+      hasMetadata ? console.warn(message, metadata) : console.warn(message);
+      break;
+    case 3:
+      hasMetadata ? console.info(message, metadata) : console.info(message);
+      break;
+    case 4:
+    case 5:
+    default:
+      hasMetadata ? console.debug(message, metadata) : console.debug(message);
       break;
   }
 }
@@ -332,35 +401,33 @@ export const hideAllUpsells = () => {
 export const getPaywallInfo = async (
   trigger: string
 ): Promise<PaywallInfo | undefined> => {
-  return new Promise((resolve) => {
-    HeliumBridge.getPaywallInfo(
-      trigger,
-      (error: string | null, templateName: string, shouldShow: boolean) => {
-        if (error) {
-          console.log(`[Helium] ${error}`);
-          resolve(undefined);
-          return;
-        }
-        resolve({
-          paywallTemplateName: templateName,
-          shouldShow: shouldShow,
-        });
-      }
-    );
-  });
+  // TODO(native): update HeliumBridge.getPaywallInfo to return
+  // { errorMsg?, templateName?, shouldShow? } via promise (currently uses callback).
+  const result = await HeliumBridge.getPaywallInfo(trigger);
+  if (!result) {
+    console.log('[Helium] getPaywallInfo unexpected error.');
+    return;
+  }
+  if (result.errorMsg) {
+    console.log(`[Helium] ${result.errorMsg}`);
+    return;
+  }
+  return {
+    paywallTemplateName: result.templateName ?? 'unknown template',
+    shouldShow: result.shouldShow ?? true,
+  };
 };
 
+/**
+ * @deprecated Deep link handling is being replaced with paywall previews.
+ */
 export const handleDeepLink = async (url: string | null): Promise<boolean> => {
-  return new Promise((resolve) => {
-    if (url) {
-      HeliumBridge.handleDeepLink(url, (handled: boolean) => {
-        console.log('[Helium] Handled deep link:', handled);
-        resolve(handled);
-      });
-    } else {
-      resolve(false);
-    }
-  });
+  if (!url) return false;
+  // TODO(native): update HeliumBridge.handleDeepLink to return a boolean via
+  // promise (currently uses callback).
+  const handled: boolean = await HeliumBridge.handleDeepLink(url);
+  console.log('[Helium] Handled deep link:', handled);
+  return handled;
 };
 
 export const setRevenueCatAppUserId = (rcAppUserId: string) => {
@@ -375,6 +442,28 @@ export const setCustomUserId = (newUserId: string) => {
 };
 
 /**
+ * An optional anonymous ID from your third-party analytics provider, sent alongside
+ * every Helium analytics event so you can correlate Helium data with your own analytics
+ * before you have set a custom user ID. Pass `null` to clear.
+ *
+ * - Amplitude: pass device ID
+ * - Mixpanel: pass anonymous ID
+ * - PostHog: pass anonymous ID
+ *
+ * Set this before calling `initialize()` for best results. Can also be updated after initialization.
+ */
+export const setThirdPartyAnalyticsAnonymousId = (
+  anonymousId: string | null
+): void => {
+  try {
+    // TODO(native): add HeliumBridge.setThirdPartyAnalyticsAnonymousId(anonymousId).
+    HeliumBridge.setThirdPartyAnalyticsAnonymousId(anonymousId);
+  } catch (e) {
+    console.error('[Helium] Failed to set third-party analytics anonymous ID', e);
+  }
+};
+
+/**
  * Checks if the user has an active entitlement for any product attached to the paywall that will show for provided trigger.
  * @param trigger The trigger name to check entitlement for
  * @returns Promise resolving to true if entitled, false if not, or undefined if not known (i.e. the paywall is not downloaded yet)
@@ -382,7 +471,10 @@ export const setCustomUserId = (newUserId: string) => {
 export const hasEntitlementForPaywall = async (
   trigger: string
 ): Promise<boolean | undefined> => {
-  return HeliumBridge.hasEntitlementForPaywall(trigger);
+  // TODO(native): update HeliumBridge.hasEntitlementForPaywall to return
+  // { hasEntitlement?: boolean } (currently returns a bare boolean).
+  const result = await HeliumBridge.hasEntitlementForPaywall(trigger);
+  return result?.hasEntitlement;
 };
 
 /**
@@ -408,33 +500,55 @@ export const hasAnyEntitlement = async (): Promise<boolean> => {
 export const getExperimentInfoForTrigger = async (
   trigger: string
 ): Promise<ExperimentInfo | undefined> => {
-  return new Promise((resolve) => {
-    HeliumBridge.getExperimentInfoForTrigger(
-      trigger,
-      (success: boolean, data: any) => {
-        if (!success) {
-          resolve(undefined);
-          return;
-        }
-        resolve(data as ExperimentInfo);
-      }
+  // TODO(native): update HeliumBridge.getExperimentInfoForTrigger to return an
+  // ExperimentInfoResult ({ getExperimentInfoErrorMsg?, experimentId?, ... })
+  // via promise (currently uses callback).
+  const result = await HeliumBridge.getExperimentInfoForTrigger(trigger);
+  if (!result) {
+    console.log('[Helium] getExperimentInfoForTrigger unexpected error.');
+    return;
+  }
+  if (result.getExperimentInfoErrorMsg) {
+    console.log(`[Helium] ${result.getExperimentInfoErrorMsg}`);
+    return;
+  }
+  if (!result.experimentId) {
+    console.log(
+      '[Helium] getExperimentInfoForTrigger returned data without required experimentId field.'
     );
-  });
+    return;
+  }
+  return result as ExperimentInfo;
 };
 
 /**
  * Reset Helium entirely so you can call initialize again. Only for advanced use cases.
  */
-export const resetHelium = () => {
+export const resetHelium = async (
+  options?: ResetHeliumOptions
+): Promise<void> => {
   paywallEventHandlers = undefined;
-  presentOnFallback = undefined;
-  heliumEventEmitter.removeAllListeners('helium_paywall_event');
-  heliumEventEmitter.removeAllListeners('paywallEventHandlers');
-  heliumEventEmitter.removeAllListeners('helium_make_purchase');
-  heliumEventEmitter.removeAllListeners('helium_restore_purchases');
-  HeliumBridge.resetHelium();
-  globalDownloadStatus = 'notStarted';
-  isInitialized = false;
+  presentOnPaywallUnavailable = undefined;
+  presentOnEntitled = undefined;
+  removeAllHeliumListeners();
+
+  try {
+    // TODO(native): HeliumBridge.resetHelium(clearUserTraits, clearHeliumEventListeners, clearExperimentAllocations)
+    // should be a promise-returning 3-arg call (currently sync, no args).
+    await HeliumBridge.resetHelium(
+      options?.clearUserTraits ?? true,
+      true, // always clear for now, these listeners are not yet exposed to RN
+      options?.clearExperimentAllocations ?? false
+    );
+  } catch (e) {
+    // Native reset likely completed; the async bridge response may have been
+    // lost (e.g. coroutine cancellation during module teardown). JS state is
+    // cleaned up below regardless.
+    console.warn('[Helium] resetHelium did not receive native completion:', e);
+  } finally {
+    globalDownloadStatus = 'notDownloadedYet';
+    isInitialized = false;
+  }
 };
 
 /**
@@ -469,11 +583,16 @@ export const setLightDarkModeOverride = (mode: HeliumLightDarkMode) => {
   HeliumBridge.setLightDarkModeOverride(mode);
 };
 
-export const HELIUM_CTA_NAMES = {
-  SCHEDULE_CALL: 'schedule_call',
-  SUBSCRIBE_BUTTON: 'subscribe_button',
-};
-
+/**
+ * Recursively converts boolean values to special marker strings to preserve
+ * type information when passing through the native bridge.
+ *
+ * The native bridge converts booleans to NSNumber (0/1), making them
+ * indistinguishable from actual numeric values. This helper converts:
+ * - true -> "__helium_rn_bool_true__"
+ * - false -> "__helium_rn_bool_false__"
+ * - All other values remain unchanged (null/undefined are stripped)
+ */
 function convertBooleansToMarkers(
   input: Record<string, any> | undefined
 ): Record<string, any> | undefined {
@@ -481,6 +600,7 @@ function convertBooleansToMarkers(
 
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(input)) {
+    if (value == null) continue;
     result[key] = convertValueBooleansToMarkers(value);
   }
   return result;

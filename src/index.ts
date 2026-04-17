@@ -1,4 +1,5 @@
-export { createCustomPurchaseConfig } from './types';
+export * from './types';
+export * from './HeliumExperimentInfo.types';
 
 export {
   initialize,
@@ -6,9 +7,11 @@ export {
   hideUpsell,
   hideAllUpsells,
   getPaywallInfo,
+  getDownloadStatus,
   handleDeepLink,
   setRevenueCatAppUserId,
   setCustomUserId,
+  setThirdPartyAnalyticsAnonymousId,
   hasEntitlementForPaywall,
   hasAnyActiveSubscription,
   hasAnyEntitlement,
@@ -17,30 +20,5 @@ export {
   setCustomRestoreFailedStrings,
   disableRestoreFailedDialog,
   setLightDarkModeOverride,
-  HELIUM_CTA_NAMES,
   NativeHeliumUpsellView,
 } from './native-interface';
-
-export type {
-  HeliumTransactionStatus,
-  HeliumConfig,
-  HeliumUpsellViewProps,
-  HeliumPaywallLoadingConfig,
-  HeliumLightDarkMode,
-  TriggerLoadingConfig,
-  PaywallEventHandlers,
-  PaywallOpenEvent,
-  PaywallCloseEvent,
-  PaywallDismissedEvent,
-  PurchaseSucceededEvent,
-  PaywallOpenFailedEvent,
-  CustomPaywallActionEvent,
-  HeliumPaywallEvent,
-  PresentUpsellParams,
-} from './types';
-
-export type {
-  ExperimentInfo,
-  HashDetails,
-  VariantDetails,
-} from './HeliumExperimentInfo.types';

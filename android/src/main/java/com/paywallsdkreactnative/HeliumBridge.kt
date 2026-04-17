@@ -59,9 +59,8 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         private const val DEFAULT_LOADING_BUDGET_MS = 7000L
 
         // Event names matching iOS implementation
-        const val EVENT_PAYWALL_EVENT = "helium_paywall_event"
-        const val EVENT_MAKE_PURCHASE = "helium_make_purchase"
-        const val EVENT_RESTORE_PURCHASES = "helium_restore_purchases"
+        const val EVENT_PAYWALL_EVENT = "onHeliumPaywallEvent"
+        const val EVENT_DELEGATE_ACTION = "onDelegateActionEvent"
         const val EVENT_DOWNLOAD_STATE_CHANGED = "helium_download_state_changed"
         const val EVENT_PAYWALL_HANDLERS = "paywallEventHandlers"
 
@@ -103,7 +102,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     // -------------------------------------------------------------------------
 
     @ReactMethod
-    fun initialize(config: ReadableMap, customVariableValues: ReadableMap) {
+    fun initialize(config: ReadableMap) {
         BridgeStateManager.currentBridge = this
 
         val apiKey = config.getString("apiKey") ?: return
@@ -242,13 +241,15 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     // -------------------------------------------------------------------------
 
     @ReactMethod
-    fun handlePurchaseResponse(response: ReadableMap) {
+    fun handlePurchaseResult(
+        statusString: String,
+        errorMsg: String?,
+        transactionId: String?,
+        originalTransactionId: String?,
+        productId: String?
+    ) {
         val continuation = BridgeStateManager.purchaseContinuation ?: return
 
-        val statusString = response.getString("status") ?: "failed"
-        val errorMsg = if (response.hasKey("error")) response.getString("error") else null
-
-        // Parse status string to HeliumPaywallTransactionStatus
         val status: HeliumPaywallTransactionStatus = when (statusString.lowercase()) {
             "completed", "purchased" -> HeliumPaywallTransactionStatus.Purchased
             "cancelled" -> HeliumPaywallTransactionStatus.Cancelled
@@ -262,24 +263,17 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
             )
         }
 
-        // Clear the singleton state before resuming
-        BridgeStateManager.clearPurchase()
+        // TODO: forward transactionId / originalTransactionId / productId to
+        // Helium analytics once the Helium Android SDK exposes an API for it.
 
-        // Resume the continuation with the status
+        BridgeStateManager.clearPurchase()
         continuation(status)
     }
 
     @ReactMethod
-    fun handleRestoreResponse(response: ReadableMap) {
+    fun handleRestoreResult(success: Boolean) {
         val continuation = BridgeStateManager.restoreContinuation ?: return
-
-        val statusString = response.getString("status") ?: "failed"
-        val success = statusString.lowercase() == "restored"
-
-        // Clear the singleton state before resuming
         BridgeStateManager.clearRestore()
-
-        // Resume the continuation
         continuation(success)
     }
 
@@ -704,13 +698,13 @@ private class BridgingPaywallDelegate(
 
             // Send event to JavaScript
             val eventParams = Arguments.createMap().apply {
+                putString("type", "purchase")
                 putString("productId", productDetails.productId)
                 basePlanId?.let { putString("basePlanId", it) }
                 offerId?.let { putString("offerId", it) }
-                putString("status", "starting")
             }
             BridgeStateManager.currentBridge?.sendEvent(
-                HeliumBridge.EVENT_MAKE_PURCHASE,
+                HeliumBridge.EVENT_DELEGATE_ACTION,
                 eventParams
             )
         }
@@ -735,10 +729,10 @@ private class BridgingPaywallDelegate(
 
             // Send event to JavaScript
             val eventParams = Arguments.createMap().apply {
-                putString("status", "starting")
+                putString("type", "restore")
             }
             BridgeStateManager.currentBridge?.sendEvent(
-                HeliumBridge.EVENT_RESTORE_PURCHASES,
+                HeliumBridge.EVENT_DELEGATE_ACTION,
                 eventParams
             )
         }

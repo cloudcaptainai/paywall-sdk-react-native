@@ -562,7 +562,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     ): HeliumFallbackConfig? {
         // Extract loading config settings
         val useLoadingState = paywallLoadingConfig?.get("useLoadingState") as? Boolean ?: true
-        val loadingBudget = (paywallLoadingConfig?.get("loadingBudget") as? Number)?.toLong() ?: DEFAULT_LOADING_BUDGET_MS
+        val loadingBudget = (paywallLoadingConfig?.get("loadingBudget") as? Number)?.let { (it.toDouble() * 1000).toLong() } ?: DEFAULT_LOADING_BUDGET_MS
 
         // Parse perTriggerLoadingConfig if present
         var perTriggerLoadingConfig: Map<String, HeliumFallbackConfig>? = null
@@ -573,7 +573,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                 if (key is String && value is Map<*, *>) {
                     val config = value as? Map<String, Any?>
                     val triggerUseLoadingState = config?.get("useLoadingState") as? Boolean
-                    val triggerLoadingBudget = (config?.get("loadingBudget") as? Number)?.toLong()
+                    val triggerLoadingBudget = (config?.get("loadingBudget") as? Number)?.let { (it.toDouble() * 1000).toLong() }
                     key to HeliumFallbackConfig(
                         useLoadingState = triggerUseLoadingState ?: true,
                         loadingBudgetInMs = triggerLoadingBudget ?: DEFAULT_LOADING_BUDGET_MS

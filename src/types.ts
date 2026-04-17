@@ -76,7 +76,7 @@ export type HeliumPaywallLoadingConfig = {
   /**
    * Maximum time (in seconds) to show the loading state before displaying fallback.
    * After this timeout, the fallback view will be shown even if the paywall is still downloading.
-   * Default: 2.0 seconds
+   * Default: 7.0 seconds
    */
   loadingBudget?: number;
   /**
@@ -237,7 +237,7 @@ export interface HeliumConfig {
   /** Configure loading behavior for paywalls that are mid-download. */
   paywallLoadingConfig?: HeliumPaywallLoadingConfig;
   /** Environment to use for Android. (iOS auto-detects this.)
-   *  If not specified, Android environment will be "sandbox" if app is a debug build, "production otherwise".
+   *  If not specified, Android environment will be "sandbox" if app is a debug build, "production" otherwise.
    *  Recommended to pass in "sandbox" for QA builds that behave like a production build but are actually just for testing.
    */
   environment?: HeliumEnvironment;

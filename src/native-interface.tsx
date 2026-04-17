@@ -199,6 +199,7 @@ export const initialize = async (config: HeliumConfig) => {
       ),
       useDefaultDelegate: !config.purchaseConfig,
       wrapperSdkVersion: SDK_VERSION,
+      environment: config.environment,
     },
     {}
   );

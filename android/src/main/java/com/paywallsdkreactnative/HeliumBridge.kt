@@ -64,6 +64,9 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         const val EVENT_RESTORE_PURCHASES = "helium_restore_purchases"
         const val EVENT_DOWNLOAD_STATE_CHANGED = "helium_download_state_changed"
         const val EVENT_PAYWALL_HANDLERS = "paywallEventHandlers"
+
+        private const val TRUE_MARKER = "__helium_rn_bool_true__"
+        private const val FALSE_MARKER = "__helium_rn_bool_false__"
     }
 
     private val gson = Gson()
@@ -106,6 +109,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         val apiKey = config.getString("apiKey") ?: return
         val customUserId = if (config.hasKey("customUserId")) config.getString("customUserId") else null
         val customAPIEndpoint = if (config.hasKey("customAPIEndpoint")) config.getString("customAPIEndpoint") else null
+        val revenueCatAppUserId = if (config.hasKey("revenueCatAppUserId")) config.getString("revenueCatAppUserId") else null
         val useDefaultDelegate = if (config.hasKey("useDefaultDelegate")) config.getBoolean("useDefaultDelegate") else false
 
         // Convert custom user traits with boolean markers
@@ -172,10 +176,11 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                     apiKey = apiKey,
                     heliumPaywallDelegate = delegate,
                     customUserId = customUserId,
+                    revenueCatAppUserId = revenueCatAppUserId,
                     customApiEndpoint = customAPIEndpoint,
                     customUserTraits = customUserTraits,
                     fallbackConfig = fallbackConfig,
-                    environment = environment
+                    environment = environment,
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize Helium: ${e.message}", e)
@@ -450,11 +455,6 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     // -------------------------------------------------------------------------
     // Helper Functions
     // -------------------------------------------------------------------------
-
-    private companion object BooleanMarkers {
-        const val TRUE_MARKER = "__helium_rn_bool_true__"
-        const val FALSE_MARKER = "__helium_rn_bool_false__"
-    }
 
     private fun convertMarkersToBooleans(input: ReadableMap?): Map<String, Any?>? {
         if (input == null) return null

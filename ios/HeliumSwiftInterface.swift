@@ -12,75 +12,60 @@ import UIKit
 import React
 import Combine
 
-struct UIViewWrapper: UIViewRepresentable, View {
-    let view: UIView
+enum PurchaseError: LocalizedError {
+    case unknownStatus(status: String)
+    case purchaseFailed(errorMsg: String)
 
-    func makeUIView(context: Context) -> UIView {
-        return view
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
+    var errorDescription: String? {
+        switch self {
+        case let .unknownStatus(status):
+            return "Purchase not successful due to unknown status - \(status)."
+        case let .purchaseFailed(errorMsg):
+            return errorMsg
+        }
     }
 }
 
-// Singleton to manage purchase state that survives module deallocation
 private class PurchaseStateManager {
     static let shared = PurchaseStateManager()
 
-    // Always keep reference to the current bridge
     var currentBridge: HeliumBridge?
 
-    // Only one delegate action (purchase or restore) can be in flight at a
-    // time, so a single slot per action type is sufficient.
-    var pendingPurchase: ((HeliumPaywallTransactionStatus) -> Void)?
-    var pendingRestore: ((Bool) -> Void)?
+    var activePurchaseContinuation: CheckedContinuation<HeliumPaywallTransactionStatus, Never>?
+    var activeRestoreContinuation: CheckedContinuation<Bool, Never>?
 
-    func handlePurchaseResult(
-        statusString: String,
-        error: String?,
-        transactionId: String?,
-        originalTransactionId: String?,
-        productId: String?
-    ) {
-        guard let callback = pendingPurchase else { return }
-        pendingPurchase = nil
-
-        let userInfo: [String: Any] = [
-            NSLocalizedDescriptionKey: error ?? "Failed to make purchase",
-            NSLocalizedFailureReasonErrorKey: "An unknown error occurred",
-            NSLocalizedRecoverySuggestionErrorKey: "Please try again later"
-        ]
-        let failureError = NSError(domain: "PaywallErrorDomain", code: 1001, userInfo: userInfo)
-
-        let status: HeliumPaywallTransactionStatus = switch statusString {
-            case "completed": .purchased
-            case "purchased": .purchased
-            case "cancelled": .cancelled
-            case "restored": .restored
-            case "failed": .failed(failureError)
-            case "pending": .pending
-            default: .failed(failureError)
+    private var _latestTransactionResult: HeliumTransactionIdResult?
+    private let transactionResultLock = NSLock()
+    var latestTransactionResult: HeliumTransactionIdResult? {
+        get {
+            transactionResultLock.lock()
+            defer { transactionResultLock.unlock() }
+            return _latestTransactionResult
         }
-
-        // TODO: forward transactionId / originalTransactionId / productId to
-        // Helium analytics once the Helium iOS SDK exposes an API for it.
-
-        callback(status)
+        set {
+            transactionResultLock.lock()
+            defer { transactionResultLock.unlock() }
+            _latestTransactionResult = newValue
+        }
     }
 
-    func handleRestoreResult(success: Bool) {
-        guard let callback = pendingRestore else { return }
-        pendingRestore = nil
-        callback(success)
+    var logListenerToken: HeliumLogListenerToken?
+
+    private init() {}
+
+    func clearPurchase() {
+        activePurchaseContinuation = nil
+    }
+
+    func clearRestore() {
+        activeRestoreContinuation = nil
     }
 
     // MARK: - Event Queuing
 
-    // Configuration
     private let maxQueuedEvents = 30
     private let eventExpirationSeconds: TimeInterval = 10.0
 
-    // Event queue
     private struct PendingEvent {
         let eventName: String
         let eventData: [String: Any]
@@ -89,7 +74,6 @@ private class PurchaseStateManager {
     private var pendingEvents: [PendingEvent] = []
     private let eventLock = NSLock()
 
-    // Queue an event for later delivery
     private func queueEvent(eventName: String, eventData: [String: Any]) {
         eventLock.lock()
         defer { eventLock.unlock() }
@@ -100,14 +84,12 @@ private class PurchaseStateManager {
         pendingEvents.append(PendingEvent(eventName: eventName, eventData: eventData, timestamp: Date()))
     }
 
-    // Clear all pending events
     func clearPendingEvents() {
         eventLock.lock()
         pendingEvents.removeAll()
         eventLock.unlock()
     }
 
-    // Flush queued events to bridge
     func flushEvents(bridge: HeliumBridge) {
         eventLock.lock()
         guard !pendingEvents.isEmpty else {
@@ -137,7 +119,6 @@ private class PurchaseStateManager {
         }
     }
 
-    // Safe event sending with exception catching and backup queue
     func safeSendEvent(eventName: String, eventData: [String: Any]) {
         guard let bridge = currentBridge else {
             queueEvent(eventName: eventName, eventData: eventData)
@@ -154,130 +135,60 @@ private class PurchaseStateManager {
     }
 }
 
-
-class BridgingPaywallDelegate: HeliumPaywallDelegate {
-
-    public func makePurchase(productId: String) async -> HeliumPaywallTransactionStatus {
-        return await withCheckedContinuation { continuation in
-            // Resolve any orphaned prior purchase as cancelled before replacing.
-            if let existing = PurchaseStateManager.shared.pendingPurchase {
-                existing(.cancelled)
-            }
-            PurchaseStateManager.shared.pendingPurchase = { status in
-                continuation.resume(returning: status)
-            }
-
-            PurchaseStateManager.shared.safeSendEvent(
-                eventName: "onDelegateActionEvent",
-                eventData: [
-                    "type": "purchase",
-                    "productId": productId,
-                ]
-            )
-        }
-    }
-
-    func restorePurchases() async -> Bool {
-        return await withCheckedContinuation { continuation in
-            if let existing = PurchaseStateManager.shared.pendingRestore {
-                existing(false)
-            }
-            PurchaseStateManager.shared.pendingRestore = { success in
-                continuation.resume(returning: success)
-            }
-
-            PurchaseStateManager.shared.safeSendEvent(
-                eventName: "onDelegateActionEvent",
-                eventData: [
-                    "type": "restore",
-                ]
-            )
-        }
-    }
-
-
-    func onPaywallEvent(_ event: any HeliumEvent) {
-        var eventDict = event.toDictionary()
-        // Add deprecated fields for backwards compatibility
-        if let paywallName = eventDict["paywallName"] {
-            eventDict["paywallTemplateName"] = paywallName
-        }
-        if let error = eventDict["error"] {
-            eventDict["errorDescription"] = error
-        }
-        if let productId = eventDict["productId"] {
-            eventDict["productKey"] = productId
-        }
-        if let buttonName = eventDict["buttonName"] {
-            eventDict["ctaName"] = buttonName
-        }
-        PurchaseStateManager.shared.safeSendEvent(eventName: "onHeliumPaywallEvent", eventData: eventDict)
-    }
-
-    func getCustomVariableValues() -> [String: Any?] {
-        return [:];
-    }
-}
-
 @objc(HeliumBridge)
 class HeliumBridge: RCTEventEmitter {
 
-  @objc(init)
-  public override init() {
-      super.init()
-  }
+    @objc(init)
+    public override init() {
+        super.init()
+    }
 
-   public override func supportedEvents() -> [String] {
-       return [
-           "onHeliumPaywallEvent",
-           "onDelegateActionEvent",
-           "helium_download_state_changed",
-           "helium_fallback_visibility",
-           "paywallEventHandlers"
-       ]
-   }
+    public override func supportedEvents() -> [String] {
+        return [
+            "onHeliumPaywallEvent",
+            "onDelegateActionEvent",
+            "paywallEventHandlers",
+            "onHeliumLogEvent",
+            "onEntitledEvent",
+        ]
+    }
 
-   @objc
-   override static func requiresMainQueueSetup() -> Bool {
-       return true
-   }
+    @objc
+    override static func requiresMainQueueSetup() -> Bool {
+        return true
+    }
 
     @objc
     public func initialize(_ config: NSDictionary) {
         PurchaseStateManager.shared.currentBridge = self
         PurchaseStateManager.shared.flushEvents(bridge: self)
+
         guard let apiKey = config["apiKey"] as? String else {
             return
         }
 
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
-        let customUserTraits = convertMarkersToBooleans(config["customUserTraits"] as? [String: Any])
+        let userTraitsMap = convertMarkersToBooleans(config["customUserTraits"] as? [String: Any])
         let revenueCatAppUserId = config["revenueCatAppUserId"] as? String
         let fallbackBundleURLString = config["fallbackBundleUrlString"] as? String
         let fallbackBundleString = config["fallbackBundleString"] as? String
 
         let paywallLoadingConfig = convertMarkersToBooleans(config["paywallLoadingConfig"] as? [String: Any])
         let useLoadingState = paywallLoadingConfig?["useLoadingState"] as? Bool ?? true
-        let loadingBudget = paywallLoadingConfig?["loadingBudget"] as? TimeInterval ?? 7.0
-
-        var perTriggerLoadingConfig: [String: TriggerLoadingConfig]? = nil
-        if let perTriggerDict = paywallLoadingConfig?["perTriggerLoadingConfig"] as? [String: [String: Any]] {
-          var triggerConfigs: [String: TriggerLoadingConfig] = [:]
-          for (trigger, config) in perTriggerDict {
-            triggerConfigs[trigger] = TriggerLoadingConfig(
-              useLoadingState: config["useLoadingState"] as? Bool,
-              loadingBudget: config["loadingBudget"] as? TimeInterval
-            )
-          }
-          perTriggerLoadingConfig = triggerConfigs
+        let loadingBudget = paywallLoadingConfig?["loadingBudget"] as? TimeInterval
+        if !useLoadingState {
+            Helium.config.defaultLoadingBudget = -1
+        } else {
+            Helium.config.defaultLoadingBudget = loadingBudget ?? 7.0
         }
 
         let useDefaultDelegate = config["useDefaultDelegate"] as? Bool ?? false
+        let delegateType = config["delegateType"] as? String
 
         let delegateEventHandler: (HeliumEvent) -> Void = { event in
             var eventDict = event.toDictionary()
-            // Add deprecated fields for backwards compatibility
+            // Deprecated aliases for backwards compatibility
             if let paywallName = eventDict["paywallName"] {
                 eventDict["paywallTemplateName"] = paywallName
             }
@@ -290,10 +201,14 @@ class HeliumBridge: RCTEventEmitter {
             if let buttonName = eventDict["buttonName"] {
                 eventDict["ctaName"] = buttonName
             }
+            applyEventFieldAliases(&eventDict)
             PurchaseStateManager.shared.safeSendEvent(eventName: "onHeliumPaywallEvent", eventData: eventDict)
         }
 
-        let bridgingDelegate = BridgingPaywallDelegate()
+        let internalDelegate = InternalDelegate(
+            delegateType: delegateType,
+            eventHandler: delegateEventHandler
+        )
 
         let defaultDelegate = DefaultPurchaseDelegate(eventHandler: delegateEventHandler)
 
@@ -316,277 +231,430 @@ class HeliumBridge: RCTEventEmitter {
         let wrapperSdkVersion = config["wrapperSdkVersion"] as? String ?? "unknown"
         HeliumSdkConfig.shared.setWrapperSdkInfo(sdk: "old-expo", version: wrapperSdkVersion)
 
-        Helium.shared.initialize(
-            apiKey: apiKey,
-            heliumPaywallDelegate: useDefaultDelegate ? defaultDelegate : bridgingDelegate,
-            fallbackConfig: HeliumFallbackConfig.withMultipleFallbacks(
-                // As a workaround for required fallback check in iOS, supply empty fallbackPerTrigger
-                // since currently iOS requires some type of fallback but RN does not.
-                fallbackPerTrigger: [:],
-                fallbackBundle: fallbackBundleURL,
-                useLoadingState: useLoadingState,
-                loadingBudget: loadingBudget,
-                perTriggerLoadingConfig: perTriggerLoadingConfig
+        if let customUserId {
+            Helium.identify.userId = customUserId
+        }
+        if let userTraitsMap {
+            Helium.identify.setUserTraits(HeliumUserTraits(userTraitsMap))
+        }
+        if let revenueCatAppUserId {
+            Helium.identify.revenueCatAppUserId = revenueCatAppUserId
+        }
+
+        Helium.config.purchaseDelegate = useDefaultDelegate ? defaultDelegate : internalDelegate
+        if let fallbackBundleURL {
+            Helium.config.customFallbacksURL = fallbackBundleURL
+        }
+        if let customAPIEndpoint {
+            Helium.config.customAPIEndpoint = customAPIEndpoint
+        }
+        if config["androidConsumableProductIds"] != nil {
+            print("[Helium] androidConsumableProductIds is only used on Android and will be ignored on iOS.")
+        }
+
+        if PurchaseStateManager.shared.logListenerToken == nil {
+            PurchaseStateManager.shared.logListenerToken = HeliumLogger.addLogListener { event in
+                // Drop log events if no bridge is available — don't queue them.
+                // Logs can be high-volume and could evict critical purchase/restore events.
+                guard PurchaseStateManager.shared.currentBridge != nil else { return }
+
+                let eventData: [String: Any] = [
+                    "level": event.level.rawValue,
+                    "category": event.category.rawValue,
+                    "message": event.message,
+                    "metadata": event.metadata,
+                ]
+                PurchaseStateManager.shared.safeSendEvent(eventName: "onHeliumLogEvent", eventData: eventData)
+            }
+        }
+
+        Helium.shared.initialize(apiKey: apiKey)
+    }
+
+    @objc
+    public func handlePurchaseResult(
+        _ statusString: NSString,
+        error: NSString?,
+        transactionId: NSString?,
+        originalTransactionId: NSString?,
+        productId: NSString?
+    ) {
+        guard let continuation = PurchaseStateManager.shared.activePurchaseContinuation else {
+            print("[Helium] handlePurchaseResult called with no active continuation")
+            return
+        }
+
+        let lowercasedStatus = (statusString as String).lowercased()
+        let status: HeliumPaywallTransactionStatus
+
+        switch lowercasedStatus {
+        case "purchased", "completed":
+            status = .purchased
+            if let productId = productId as String?, let transactionId = transactionId as String? {
+                PurchaseStateManager.shared.latestTransactionResult = HeliumTransactionIdResult(
+                    productId: productId,
+                    transactionId: transactionId,
+                    originalTransactionId: originalTransactionId as String?
+                )
+            }
+        case "cancelled":
+            status = .cancelled
+        case "restored":
+            status = .restored
+        case "pending":
+            status = .pending
+        case "failed":
+            status = .failed(PurchaseError.purchaseFailed(errorMsg: (error as String?) ?? "Unexpected error."))
+        default:
+            status = .failed(PurchaseError.unknownStatus(status: lowercasedStatus))
+        }
+
+        PurchaseStateManager.shared.clearPurchase()
+        continuation.resume(returning: status)
+    }
+
+    @objc
+    public func handleRestoreResult(_ success: Bool) {
+        guard let continuation = PurchaseStateManager.shared.activeRestoreContinuation else {
+            print("[Helium] handleRestoreResult called with no active continuation")
+            return
+        }
+        PurchaseStateManager.shared.clearRestore()
+        continuation.resume(returning: success)
+    }
+
+    @objc
+    public func presentUpsell(
+        _ trigger: String,
+        customPaywallTraits: [String: Any]?,
+        dontShowIfAlreadyEntitled: Bool,
+        androidDisableSystemBackNavigation: Bool
+    ) {
+        PurchaseStateManager.shared.currentBridge = self
+        PurchaseStateManager.shared.flushEvents(bridge: self)
+
+        var paywallTraits: HeliumUserTraits? = nil
+        if let paywallTraitsMap = convertMarkersToBooleans(customPaywallTraits) {
+            paywallTraits = HeliumUserTraits(paywallTraitsMap)
+        }
+
+        Helium.shared.presentPaywall(
+            trigger: trigger,
+            config: PaywallPresentationConfig(
+                customPaywallTraits: paywallTraits,
+                dontShowIfAlreadyEntitled: dontShowIfAlreadyEntitled
             ),
-            customUserId: customUserId,
-            customAPIEndpoint: customAPIEndpoint,
-            customUserTraits: HeliumUserTraits(customUserTraits ?? [:]),
-            revenueCatAppUserId: revenueCatAppUserId
+            eventHandlers: PaywallEventHandlers.withHandlers(
+                onAnyEvent: { event in
+                    var eventDict = event.toDictionary()
+                    applyEventFieldAliases(&eventDict)
+                    PurchaseStateManager.shared.safeSendEvent(eventName: "paywallEventHandlers", eventData: eventDict)
+                }
+            ),
+            onEntitled: {
+                PurchaseStateManager.shared.safeSendEvent(eventName: "onEntitledEvent", eventData: [:])
+            }
+        ) { _ in
+            // paywallNotShownReason — nothing for now
+        }
+    }
+
+    @objc
+    public func hideUpsell() {
+        _ = Helium.shared.hidePaywall()
+    }
+
+    @objc
+    public func hideAllUpsells() {
+        Helium.shared.hideAllPaywalls()
+    }
+
+    @objc
+    public func getDownloadStatus(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        resolver(Helium.shared.getDownloadStatus().rawValue)
+    }
+
+    @objc
+    public func fallbackOpenOrCloseEvent(
+        _ trigger: String?,
+        isOpen: Bool,
+        viewType: String?
+    ) {
+        // No-op stub kept for API compatibility — method is no longer exposed by the native SDK.
+    }
+
+    @objc
+    public func getPaywallInfo(
+        _ trigger: String,
+        resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        guard let paywallInfo = Helium.shared.getPaywallInfo(trigger: trigger) else {
+            resolver(["errorMsg": "Invalid trigger or paywalls not ready."])
+            return
+        }
+        resolver([
+            "templateName": paywallInfo.paywallTemplateName,
+            "shouldShow": paywallInfo.shouldShow,
+        ])
+    }
+
+    @objc
+    public func handleDeepLink(
+        _ urlString: String,
+        resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        guard let url = URL(string: urlString) else {
+            resolver(false)
+            return
+        }
+        resolver(Helium.shared.handleDeepLink(url))
+    }
+
+    @objc
+    public func setRevenueCatAppUserId(_ rcAppUserId: String) {
+        Helium.identify.revenueCatAppUserId = rcAppUserId
+    }
+
+    @objc
+    public func setCustomUserId(_ newUserId: String) {
+        Helium.identify.userId = newUserId
+    }
+
+    @objc
+    public func setThirdPartyAnalyticsAnonymousId(_ anonymousId: NSString?) {
+        Helium.identify.thirdPartyAnalyticsAnonymousId = anonymousId as String?
+    }
+
+    @objc
+    public func hasEntitlementForPaywall(
+        _ trigger: String,
+        resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            let hasEntitlement = await Helium.entitlements.hasEntitlementForPaywall(trigger: trigger)
+            resolver(["hasEntitlement": hasEntitlement as Any])
+        }
+    }
+
+    @objc
+    public func hasAnyActiveSubscription(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            let result = await Helium.entitlements.hasAnyActiveSubscription()
+            resolver(result)
+        }
+    }
+
+    @objc
+    public func hasAnyEntitlement(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            let result = await Helium.entitlements.hasAny()
+            resolver(result)
+        }
+    }
+
+    @objc
+    public func getExperimentInfoForTrigger(
+        _ trigger: String,
+        resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        guard let experimentInfo = Helium.experiments.infoForTrigger(trigger) else {
+            resolver(["getExperimentInfoErrorMsg": "No experiment info found for trigger: \(trigger)"])
+            return
+        }
+
+        let encoder = JSONEncoder()
+        guard let jsonData = try? encoder.encode(experimentInfo),
+              let dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
+            resolver(["getExperimentInfoErrorMsg": "Failed to serialize experiment info"])
+            return
+        }
+
+        resolver(dictionary)
+    }
+
+    @objc
+    public func disableRestoreFailedDialog() {
+        Helium.config.restorePurchasesDialog.disableRestoreFailedDialog()
+    }
+
+    @objc
+    public func setCustomRestoreFailedStrings(
+        _ customTitle: String?,
+        customMessage: String?,
+        customCloseButtonText: String?
+    ) {
+        Helium.config.restorePurchasesDialog.setCustomRestoreFailedStrings(
+            customTitle: customTitle,
+            customMessage: customMessage,
+            customCloseButtonText: customCloseButtonText
         )
     }
 
-  @objc
-  public func handlePurchaseResult(
-      _ statusString: NSString,
-      error: NSString?,
-      transactionId: NSString?,
-      originalTransactionId: NSString?,
-      productId: NSString?
-  ) {
-      PurchaseStateManager.shared.handlePurchaseResult(
-          statusString: statusString as String,
-          error: error as String?,
-          transactionId: transactionId as String?,
-          originalTransactionId: originalTransactionId as String?,
-          productId: productId as String?
-      )
-  }
+    @objc
+    public func resetHelium(
+        _ clearUserTraits: Bool,
+        clearHeliumEventListeners: Bool,
+        clearExperimentAllocations: Bool,
+        resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        PurchaseStateManager.shared.logListenerToken?.remove()
+        PurchaseStateManager.shared.logListenerToken = nil
+        PurchaseStateManager.shared.clearPendingEvents()
 
-  @objc
-  public func handleRestoreResult(_ success: Bool) {
-      PurchaseStateManager.shared.handleRestoreResult(success: success)
-  }
-
-  @objc
-  public func getFetchedTriggerNames(_ callback: RCTResponseSenderBlock) {
-    let triggerNames = HeliumFetchedConfigManager.shared.getFetchedTriggerNames();
-    callback([triggerNames])
-  }
-
-   @objc
-   public func upsellViewForTrigger(
-       _ trigger: String,
-       resolver: @escaping RCTPromiseResolveBlock,
-       rejecter: @escaping RCTPromiseRejectBlock
-   ) {
-       let swiftUIView = Helium.shared.upsellViewForTrigger(trigger: trigger)
-       let hostingController = UIHostingController(rootView: swiftUIView)
-       resolver(hostingController.view)
-   }
-
-  @objc
-  public func presentUpsell(
-    _ trigger: String,
-    customPaywallTraits: [String: Any]?,
-    dontShowIfAlreadyEntitled: Bool
-  ) {
-    PurchaseStateManager.shared.currentBridge = self // extra redundancy to update to latest live bridge
-    PurchaseStateManager.shared.flushEvents(bridge: self)
-    Helium.shared.presentUpsell(
-        trigger: trigger,
-        eventHandlers: PaywallEventHandlers.withHandlers(
-            onAnyEvent: { event in
-                PurchaseStateManager.shared.safeSendEvent(eventName: "paywallEventHandlers", eventData: event.toDictionary())
+        Helium.resetHelium(
+            clearUserTraits: clearUserTraits,
+            clearHeliumEventListeners: clearHeliumEventListeners,
+            clearExperimentAllocations: clearExperimentAllocations,
+            onComplete: {
+                resolver(nil)
             }
-        ),
-        customPaywallTraits: convertMarkersToBooleans(customPaywallTraits),
-        dontShowIfAlreadyEntitled: dontShowIfAlreadyEntitled
-    );
-  }
-
-  @objc
-  public func hideUpsell() {
-    _ = Helium.shared.hideUpsell();
-  }
-
-  @objc
-  public func hideAllUpsells() {
-    Helium.shared.hideAllUpsells();
-  }
-
-  @objc
-  public func fallbackOpenOrCloseEvent(
-    _ trigger: String?,
-    isOpen: Bool,
-    viewType: String?
-  ) {
-      // Taking this out for now, there is no instance of it firing and method is no longer exposed
-      // by native SDK
-//     HeliumPaywallDelegateWrapper.shared.onFallbackOpenCloseEvent(trigger: trigger, isOpen: isOpen, viewType: viewType, fallbackReason: .bridgingError)
-  }
-
-  @objc
-  public func getPaywallInfo(
-    _ trigger: String,
-    callback: RCTResponseSenderBlock
-  ) {
-    guard let paywallInfo = Helium.shared.getPaywallInfo(trigger: trigger) else {
-      callback(["Invalid trigger or paywalls not ready.", NSNull(), NSNull()])
-      return
+        )
     }
 
-    callback([NSNull(), paywallInfo.paywallTemplateName, paywallInfo.shouldShow])
-  }
-
-  @objc
-  public func handleDeepLink(
-    _ urlString: String,
-    callback: RCTResponseSenderBlock
-  ) {
-    guard let url = URL(string: urlString) else {
-      callback([false])
-      return
+    @objc
+    public func setLightDarkModeOverride(_ mode: String) {
+        let heliumMode: HeliumLightDarkMode
+        switch mode.lowercased() {
+        case "light":
+            heliumMode = .light
+        case "dark":
+            heliumMode = .dark
+        case "system":
+            heliumMode = .system
+        default:
+            print("[Helium] Invalid mode: \(mode), defaulting to system")
+            heliumMode = .system
+        }
+        Helium.config.lightDarkModeOverride = heliumMode
     }
 
-    let result = Helium.shared.handleDeepLink(url)
-    callback([result])
-  }
+    private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {
+        guard let input = input else { return nil }
 
-  @objc
-  public func setRevenueCatAppUserId(_ rcAppUserId: String) {
-      Helium.shared.setRevenueCatAppUserId(rcAppUserId)
-  }
+        var result: [String: Any] = [:]
+        for (key, value) in input {
+            result[key] = convertValueMarkersToBooleans(value)
+        }
+        return result
+    }
 
-  @objc
-  public func setCustomUserId(_ newUserId: String) {
-      Helium.shared.overrideUserId(newUserId: newUserId)
-  }
+    private func convertValueMarkersToBooleans(_ value: Any) -> Any {
+        if let stringValue = value as? String {
+            switch stringValue {
+            case "__helium_rn_bool_true__":
+                return true
+            case "__helium_rn_bool_false__":
+                return false
+            default:
+                return stringValue
+            }
+        } else if let dictValue = value as? [String: Any] {
+            return convertMarkersToBooleans(dictValue) ?? [:]
+        } else if let arrayValue = value as? [Any] {
+            return arrayValue.map { convertValueMarkersToBooleans($0) }
+        }
+        return value
+    }
+}
 
-  @objc
-  public func hasEntitlementForPaywall(
-      _ trigger: String,
-      resolver: @escaping RCTPromiseResolveBlock,
-      rejecter: @escaping RCTPromiseRejectBlock
-  ) {
-      Task {
-          let hasEntitlement = await Helium.shared.hasEntitlementForPaywall(trigger: trigger)
-          resolver(hasEntitlement)
-      }
-  }
+private class InternalDelegate: HeliumPaywallDelegate, HeliumDelegateReturnsTransaction {
+    private let _delegateType: String?
+    public var delegateType: String { _delegateType ?? "custom" }
 
-  @objc
-  public func hasAnyActiveSubscription(
-      _ resolver: @escaping RCTPromiseResolveBlock,
-      rejecter: @escaping RCTPromiseRejectBlock
-  ) {
-      Task {
-          let result = await Helium.shared.hasAnyActiveSubscription()
-          resolver(result)
-      }
-  }
+    private let eventHandler: (HeliumEvent) -> Void
 
-  @objc
-  public func hasAnyEntitlement(
-      _ resolver: @escaping RCTPromiseResolveBlock,
-      rejecter: @escaping RCTPromiseRejectBlock
-  ) {
-      Task {
-          let result = await Helium.shared.hasAnyEntitlement()
-          resolver(result)
-      }
-  }
+    init(
+        delegateType: String?,
+        eventHandler: @escaping (HeliumEvent) -> Void
+    ) {
+        self._delegateType = delegateType
+        self.eventHandler = eventHandler
+    }
 
-  @objc
-  public func getExperimentInfoForTrigger(
-      _ trigger: String,
-      callback: RCTResponseSenderBlock
-  ) {
-      guard let experimentInfo = Helium.shared.getExperimentInfoForTrigger(trigger) else {
-          callback([false, NSNull()])
-          return
-      }
+    // MARK: - HeliumPaywallDelegate
 
-      // Convert ExperimentInfo to dictionary using JSONEncoder
-      let encoder = JSONEncoder()
-      guard let jsonData = try? encoder.encode(experimentInfo),
-            let dictionary = try? JSONSerialization.jsonObject(with: jsonData, options: []) as? [String: Any] else {
-          callback([false, NSNull()])
-          return
-      }
+    public func makePurchase(productId: String) async -> HeliumPaywallTransactionStatus {
+        PurchaseStateManager.shared.latestTransactionResult = nil
 
-      // Return the dictionary directly - it contains all ExperimentInfo fields
-      callback([true, dictionary])
-  }
+        if let existing = PurchaseStateManager.shared.activePurchaseContinuation {
+            existing.resume(returning: .cancelled)
+            PurchaseStateManager.shared.clearPurchase()
+        }
 
-  @objc
-  public func disableRestoreFailedDialog() {
-      Helium.restorePurchaseConfig.disableRestoreFailedDialog()
-  }
+        return await withCheckedContinuation { continuation in
+            PurchaseStateManager.shared.activePurchaseContinuation = continuation
 
-  @objc
-  public func setCustomRestoreFailedStrings(
-      _ customTitle: String?,
-      customMessage: String?,
-      customCloseButtonText: String?
-  ) {
-      Helium.restorePurchaseConfig.setCustomRestoreFailedStrings(
-          customTitle: customTitle,
-          customMessage: customMessage,
-          customCloseButtonText: customCloseButtonText
-      )
-  }
+            PurchaseStateManager.shared.safeSendEvent(
+                eventName: "onDelegateActionEvent",
+                eventData: [
+                    "type": "purchase",
+                    "productId": productId,
+                ]
+            )
+        }
+    }
 
-  @objc
-  public func resetHelium() {
-      PurchaseStateManager.shared.clearPendingEvents()
-      Helium.resetHelium()
-  }
+    public func restorePurchases() async -> Bool {
+        if let existing = PurchaseStateManager.shared.activeRestoreContinuation {
+            existing.resume(returning: false)
+            PurchaseStateManager.shared.clearRestore()
+        }
 
-  @objc
-  public func setLightDarkModeOverride(_ mode: String) {
-      let heliumMode: HeliumLightDarkMode
-      switch mode.lowercased() {
-      case "light":
-          heliumMode = .light
-      case "dark":
-          heliumMode = .dark
-      case "system":
-          heliumMode = .system
-      default:
-          print("[Helium] Invalid mode: \(mode), defaulting to system")
-          heliumMode = .system
-      }
-      Helium.shared.setLightDarkModeOverride(heliumMode)
-  }
+        return await withCheckedContinuation { continuation in
+            PurchaseStateManager.shared.activeRestoreContinuation = continuation
 
-  private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {
-      guard let input = input else { return nil }
+            PurchaseStateManager.shared.safeSendEvent(
+                eventName: "onDelegateActionEvent",
+                eventData: [
+                    "type": "restore",
+                ]
+            )
+        }
+    }
 
-      var result: [String: Any] = [:]
-      for (key, value) in input {
-          result[key] = convertValueMarkersToBooleans(value)
-      }
-      return result
-  }
-  private func convertValueMarkersToBooleans(_ value: Any) -> Any {
-      if let stringValue = value as? String {
-          switch stringValue {
-          case "__helium_rn_bool_true__":
-              return true
-          case "__helium_rn_bool_false__":
-              return false
-          default:
-              return stringValue
-          }
-      } else if let dictValue = value as? [String: Any] {
-          return convertMarkersToBooleans(dictValue) ?? [:]
-      } else if let arrayValue = value as? [Any] {
-          return arrayValue.map { convertValueMarkersToBooleans($0) }
-      }
-      return value
-  }
+    func onPaywallEvent(_ event: any HeliumEvent) {
+        eventHandler(event)
+    }
 
+    // MARK: - HeliumDelegateReturnsTransaction
+
+    func getLatestCompletedTransactionIdResult() -> HeliumTransactionIdResult? {
+        return PurchaseStateManager.shared.latestTransactionResult
+    }
 }
 
 fileprivate class DefaultPurchaseDelegate: StoreKitDelegate {
     private let eventHandler: (HeliumEvent) -> Void
-    init(
-        eventHandler: @escaping (HeliumEvent) -> Void
-    ) {
+    init(eventHandler: @escaping (HeliumEvent) -> Void) {
         self.eventHandler = eventHandler
     }
 
     override func onPaywallEvent(_ event: any HeliumEvent) {
         eventHandler(event)
+    }
+}
+
+/// Modifies native event dictionary fields to match expected TypeScript types.
+/// Free function to avoid capturing `self` in long-lived closures.
+private func applyEventFieldAliases(_ eventDict: inout [String: Any]) {
+    if eventDict["customPaywallActionName"] == nil, let actionName = eventDict["actionName"] {
+        eventDict["customPaywallActionName"] = actionName
+    }
+    if eventDict["customPaywallActionParams"] == nil, let params = eventDict["params"] {
+        eventDict["customPaywallActionParams"] = params
     }
 }

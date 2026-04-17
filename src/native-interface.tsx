@@ -1,12 +1,6 @@
-import {
-  NativeModules,
-  NativeEventEmitter,
-  requireNativeComponent,
-  Platform,
-} from 'react-native';
+import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 import type {
   HeliumConfig,
-  HeliumUpsellViewProps,
   HeliumDownloadStatus,
   HeliumLightDarkMode,
   HeliumLogEvent,
@@ -31,10 +25,6 @@ try {
 
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
-// Register the native component once at module level
-export const NativeHeliumUpsellView =
-  requireNativeComponent<HeliumUpsellViewProps>('HeliumUpsellView');
-
 let isInitialized = false;
 
 const HELIUM_EVENT_NAMES = [
@@ -51,30 +41,16 @@ const removeAllHeliumListeners = () => {
   }
 };
 
-// JS-side download status mirror. TODO(native): replace with a native
-// `HeliumBridge.getDownloadStatus()` call (as in the Expo module SDK) so this
-// doesn't drift if events are missed.
-let globalDownloadStatus: HeliumDownloadStatus = 'notDownloadedYet';
-export const getDownloadStatus = () => globalDownloadStatus;
-
-const updateDownloadStatus = (status: HeliumDownloadStatus) => {
-  globalDownloadStatus = status;
+export const getDownloadStatus = async (): Promise<HeliumDownloadStatus> => {
+  return HeliumBridge.getDownloadStatus();
 };
 
 function setupEventListeners(config: HeliumConfig) {
-  // TODO(native): iOS/Android must emit onHeliumLogEvent and onEntitledEvent
-  // under these exact names to match the Expo module SDK (not yet wired).
   removeAllHeliumListeners();
 
   heliumEventEmitter.addListener(
     'onHeliumPaywallEvent',
     (event: HeliumPaywallEvent) => {
-      if (event.type === 'paywallsDownloadSuccess') {
-        updateDownloadStatus('downloadSuccess');
-      } else if (event.type === 'paywallsDownloadError') {
-        updateDownloadStatus('downloadFailure');
-      }
-
       handlePaywallEvent(event);
       try {
         config.purchaseConfig?.onHeliumEvent?.(event);
@@ -228,8 +204,6 @@ export const initialize = async (config: HeliumConfig) => {
   try {
     setupEventListeners(config);
     const nativeConfig = await buildNativeConfig(config);
-    // TODO(native): iOS/Android initialize now takes a single NativeHeliumConfig
-    // object (no second arg), matching the Expo module SDK.
     HeliumBridge.initialize(nativeConfig);
   } catch (error) {
     isInitialized = false;
@@ -254,7 +228,6 @@ export const presentUpsell = ({
     paywallEventHandlers = eventHandlers;
     presentOnPaywallUnavailable = onPaywallUnavailable;
     presentOnEntitled = onEntitled;
-    // TODO(native): presentUpsell now accepts a 4th arg `androidDisableSystemBackNavigation`.
     HeliumBridge.presentUpsell(
       triggerName,
       convertBooleansToMarkers(customPaywallTraits),
@@ -401,8 +374,6 @@ export const hideAllUpsells = () => {
 export const getPaywallInfo = async (
   trigger: string
 ): Promise<PaywallInfo | undefined> => {
-  // TODO(native): update HeliumBridge.getPaywallInfo to return
-  // { errorMsg?, templateName?, shouldShow? } via promise (currently uses callback).
   const result = await HeliumBridge.getPaywallInfo(trigger);
   if (!result) {
     console.log('[Helium] getPaywallInfo unexpected error.');
@@ -423,8 +394,6 @@ export const getPaywallInfo = async (
  */
 export const handleDeepLink = async (url: string | null): Promise<boolean> => {
   if (!url) return false;
-  // TODO(native): update HeliumBridge.handleDeepLink to return a boolean via
-  // promise (currently uses callback).
   const handled: boolean = await HeliumBridge.handleDeepLink(url);
   console.log('[Helium] Handled deep link:', handled);
   return handled;
@@ -456,7 +425,6 @@ export const setThirdPartyAnalyticsAnonymousId = (
   anonymousId: string | null
 ): void => {
   try {
-    // TODO(native): add HeliumBridge.setThirdPartyAnalyticsAnonymousId(anonymousId).
     HeliumBridge.setThirdPartyAnalyticsAnonymousId(anonymousId);
   } catch (e) {
     console.error('[Helium] Failed to set third-party analytics anonymous ID', e);
@@ -471,8 +439,6 @@ export const setThirdPartyAnalyticsAnonymousId = (
 export const hasEntitlementForPaywall = async (
   trigger: string
 ): Promise<boolean | undefined> => {
-  // TODO(native): update HeliumBridge.hasEntitlementForPaywall to return
-  // { hasEntitlement?: boolean } (currently returns a bare boolean).
   const result = await HeliumBridge.hasEntitlementForPaywall(trigger);
   return result?.hasEntitlement;
 };
@@ -500,9 +466,6 @@ export const hasAnyEntitlement = async (): Promise<boolean> => {
 export const getExperimentInfoForTrigger = async (
   trigger: string
 ): Promise<ExperimentInfo | undefined> => {
-  // TODO(native): update HeliumBridge.getExperimentInfoForTrigger to return an
-  // ExperimentInfoResult ({ getExperimentInfoErrorMsg?, experimentId?, ... })
-  // via promise (currently uses callback).
   const result = await HeliumBridge.getExperimentInfoForTrigger(trigger);
   if (!result) {
     console.log('[Helium] getExperimentInfoForTrigger unexpected error.');
@@ -533,8 +496,6 @@ export const resetHelium = async (
   removeAllHeliumListeners();
 
   try {
-    // TODO(native): HeliumBridge.resetHelium(clearUserTraits, clearHeliumEventListeners, clearExperimentAllocations)
-    // should be a promise-returning 3-arg call (currently sync, no args).
     await HeliumBridge.resetHelium(
       options?.clearUserTraits ?? true,
       true, // always clear for now, these listeners are not yet exposed to RN
@@ -546,7 +507,6 @@ export const resetHelium = async (
     // cleaned up below regardless.
     console.warn('[Helium] resetHelium did not receive native completion:', e);
   } finally {
-    globalDownloadStatus = 'notDownloadedYet';
     isInitialized = false;
   }
 };

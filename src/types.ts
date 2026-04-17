@@ -6,21 +6,49 @@ export type HeliumTransactionStatus =
   | 'cancelled'
   | 'pending'
   | 'restored';
+
 export type HeliumPurchaseResult = {
   status: HeliumTransactionStatus;
-  error?: string; // Optional error message
+  /** Optional error message */
+  error?: string;
+  transactionId?: string;
+  originalTransactionId?: string;
+  productId?: string;
 };
+
 export type HeliumDownloadStatus =
-  | 'success'
-  | 'failed'
+  | 'downloadSuccess'
+  | 'downloadFailure'
   | 'inProgress'
-  | 'notStarted';
+  | 'notDownloadedYet';
+
 export type HeliumLightDarkMode = 'light' | 'dark' | 'system';
+
+/** A log event emitted by the native Helium SDK. */
+export interface HeliumLogEvent {
+  /** Numeric log level (1=error, 2=warn, 3=info, 4=debug, 5=trace). */
+  level: number;
+  /** The category/subsystem that generated this log (iOS) or tag (Android). */
+  category: string;
+  /** The log message (prefixed with "[Helium] "). */
+  message: string;
+  /** Key-value metadata associated with this log event (iOS only, empty on Android). */
+  metadata: Record<string, string>;
+}
+
+/** Bridge event from the native SDK asking the host app to perform a purchase or restore. */
+export type DelegateActionEvent = {
+  type: 'purchase' | 'restore';
+  productId?: string;
+  /** Android-specific: Base plan ID for subscriptions */
+  basePlanId?: string;
+  /** Android-specific: Offer ID for promotional offers */
+  offerId?: string;
+};
 
 // --- Purchase Configuration Types ---
 
 /** Interface for providing custom purchase handling logic. */
-
 export interface HeliumPurchaseConfig {
   /**
    * @deprecated Use makePurchaseIOS / makePurchaseAndroid instead for platform-specific handling.
@@ -37,6 +65,12 @@ export interface HeliumPurchaseConfig {
   ) => Promise<HeliumPurchaseResult>;
 
   restorePurchases: () => Promise<boolean>;
+
+  /** @internal Used to identify the purchase delegate type for analytics. */
+  _delegateType?: string;
+
+  /** Called by the Helium SDK on every paywall event. */
+  onHeliumEvent?: (event: HeliumPaywallEvent) => void;
 }
 
 // Helper function for creating Custom Purchase Config
@@ -74,7 +108,7 @@ export type HeliumPaywallLoadingConfig = {
    */
   useLoadingState?: boolean;
   /**
-   * Maximum time (in seconds) to show the loading state before displaying fallback.
+   * Maximum time (in seconds) to show the loading state before displaying the fallback paywall.
    * After this timeout, the fallback view will be shown even if the paywall is still downloading.
    * Default: 7.0 seconds
    */
@@ -170,7 +204,8 @@ export type HeliumPaywallEvent = {
     | 'paywallsDownloadError'
     | 'paywallWebViewRendered'
     | 'customPaywallAction'
-    | 'userAllocated';
+    | 'userAllocated'
+    | 'purchaseAlreadyEntitled';
   triggerName?: string;
   paywallName?: string;
   /**
@@ -187,10 +222,11 @@ export type HeliumPaywallEvent = {
    * @deprecated Use `buttonName` instead.
    */
   ctaName?: string;
-  paywallDownloadTimeTakenMS?: number;
-  templateDownloadTimeTakenMS?: number;
+  configId?: string;
+  numAttempts?: number;
+  downloadTimeTakenMS?: number;
+  webviewRenderTimeTakenMS?: number;
   imagesDownloadTimeTakenMS?: number;
-  stylesDownloadTimeTakenMS?: number;
   fontsDownloadTimeTakenMS?: number;
   bundleDownloadTimeMS?: number;
   dismissAll?: boolean;
@@ -207,16 +243,27 @@ export type HeliumPaywallEvent = {
   paywallUnavailableReason?: string;
   customPaywallActionName?: string;
   customPaywallActionParams?: Record<string, any>;
+  /** Transaction ID for a successful purchase. */
+  canonicalJoinTransactionId?: string;
 };
 
 export type PresentUpsellParams = {
   triggerName: string;
-  /** Optional. This will be called when paywall fails to show due to an unsuccessful paywall download or if an invalid trigger is provided. */
-  onFallback?: () => void;
   eventHandlers?: PaywallEventHandlers;
   customPaywallTraits?: Record<string, any>;
   /** Optional. If true, the paywall will not be shown if the user already has an entitlement for a product in the paywall. */
   dontShowIfAlreadyEntitled?: boolean;
+  /** Optional. Android only. If true, disables the system back button/gesture while the paywall is displayed. Defaults to false. */
+  androidDisableSystemBackNavigation?: boolean;
+  /** Optional. Called upon purchase success or purchase restore.
+   * If you set `dontShowIfAlreadyEntitled` to true, this handler will also be called when paywall not shown
+   * to users who already have entitlement for a product in the paywall.
+   */
+  onEntitled?: () => void;
+  /** Optional. Called if desired paywall and fallback paywall did not show for any reason.
+   * This is uncommon, but best practice to handle it just in case.
+   * See https://docs.tryhelium.com/guides/fallback-bundle */
+  onPaywallUnavailable?: () => void;
 };
 
 // --- Main Helium Configuration ---
@@ -245,6 +292,37 @@ export interface HeliumConfig {
   customAPIEndpoint?: string;
   customUserTraits?: Record<string, any>;
   revenueCatAppUserId?: string;
+  /**
+   * Set consumable product IDs for Android.
+   * These IDs will be used to identify consumable products in the Play Store
+   * and this is only respected if no custom purchaseConfig is supplied.
+   * This is only relevant on Android and is a no-op on other platforms.
+   */
+  androidConsumableProductIds?: string[];
+}
+
+/** Shape sent across the native bridge to initialize/setupCore. */
+export interface NativeHeliumConfig {
+  apiKey: string;
+  customUserId?: string;
+  customAPIEndpoint?: string;
+  customUserTraits?: Record<string, any>;
+  revenueCatAppUserId?: string;
+  fallbackBundleUrlString?: string;
+  fallbackBundleString?: string;
+  paywallLoadingConfig?: HeliumPaywallLoadingConfig;
+  useDefaultDelegate?: boolean;
+  environment?: string;
+  wrapperSdkVersion?: string;
+  delegateType?: string;
+  androidConsumableProductIds?: string[];
+}
+
+export interface ResetHeliumOptions {
+  /** Whether to clear custom user traits. Defaults to `true`. */
+  clearUserTraits?: boolean;
+  /** Whether to clear experiment allocations. Defaults to `false`. */
+  clearExperimentAllocations?: boolean;
 }
 
 // --- Other Existing Types ---
@@ -258,3 +336,8 @@ export interface PaywallInfo {
   paywallTemplateName: string;
   shouldShow: boolean;
 }
+
+export const HELIUM_CTA_NAMES = {
+  SCHEDULE_CALL: 'schedule_call',
+  SUBSCRIBE_BUTTON: 'subscribe_button',
+};

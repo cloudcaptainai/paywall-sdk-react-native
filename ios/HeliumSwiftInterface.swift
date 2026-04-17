@@ -160,12 +160,13 @@ class HeliumBridge: RCTEventEmitter {
 
     @objc
     public func initialize(_ config: NSDictionary) {
-        PurchaseStateManager.shared.currentBridge = self
-        PurchaseStateManager.shared.flushEvents(bridge: self)
-
-        guard let apiKey = config["apiKey"] as? String else {
+        guard let apiKey = config["apiKey"] as? String, !apiKey.isEmpty else {
+            print("[Helium] initialize called with missing/empty apiKey; aborting.")
             return
         }
+
+        PurchaseStateManager.shared.currentBridge = self
+        PurchaseStateManager.shared.flushEvents(bridge: self)
 
         let customUserId = config["customUserId"] as? String
         let customAPIEndpoint = config["customAPIEndpoint"] as? String
@@ -288,7 +289,7 @@ class HeliumBridge: RCTEventEmitter {
         let status: HeliumPaywallTransactionStatus
 
         switch lowercasedStatus {
-        case "purchased", "completed":
+        case "purchased":
             status = .purchased
             if let productId = productId as String?, let transactionId = transactionId as String? {
                 PurchaseStateManager.shared.latestTransactionResult = HeliumTransactionIdResult(

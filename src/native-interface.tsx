@@ -150,9 +150,11 @@ function setupEventListeners(config: HeliumConfig) {
             HeliumBridge.handleRestoreResult(success);
           }
         } catch (error) {
+          const errorMsg =
+            error instanceof Error ? error.message : String(error);
           if (event.type === 'purchase') {
             console.log('[Helium] Unexpected error: ', error);
-            HeliumBridge.handlePurchaseResult('failed');
+            HeliumBridge.handlePurchaseResult('failed', errorMsg);
           } else if (event.type === 'restore') {
             HeliumBridge.handleRestoreResult(false);
           }

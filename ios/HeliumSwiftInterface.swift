@@ -27,52 +27,51 @@ struct UIViewWrapper: UIViewRepresentable, View {
 private class PurchaseStateManager {
     static let shared = PurchaseStateManager()
 
-    struct PurchaseResponse {
-        let transactionId: String
-        let status: String
-        let error: String?
-    }
-
     // Always keep reference to the current bridge
     var currentBridge: HeliumBridge?
 
-    // Store pending responses for purchase/restore operations
-    var pendingResponses: [String: (PurchaseResponse) -> Void] = [:]
+    // Only one delegate action (purchase or restore) can be in flight at a
+    // time, so a single slot per action type is sufficient.
+    var pendingPurchase: ((HeliumPaywallTransactionStatus) -> Void)?
+    var pendingRestore: ((Bool) -> Void)?
 
-    func handlePurchaseResponse(_ response: NSDictionary) {
-        guard let transactionId = response["transactionId"] as? String,
-              let status = response["status"] as? String,
-              let callback = pendingResponses[transactionId] else {
-            return
+    func handlePurchaseResult(
+        statusString: String,
+        error: String?,
+        transactionId: String?,
+        originalTransactionId: String?,
+        productId: String?
+    ) {
+        guard let callback = pendingPurchase else { return }
+        pendingPurchase = nil
+
+        let userInfo: [String: Any] = [
+            NSLocalizedDescriptionKey: error ?? "Failed to make purchase",
+            NSLocalizedFailureReasonErrorKey: "An unknown error occurred",
+            NSLocalizedRecoverySuggestionErrorKey: "Please try again later"
+        ]
+        let failureError = NSError(domain: "PaywallErrorDomain", code: 1001, userInfo: userInfo)
+
+        let status: HeliumPaywallTransactionStatus = switch statusString {
+            case "completed": .purchased
+            case "purchased": .purchased
+            case "cancelled": .cancelled
+            case "restored": .restored
+            case "failed": .failed(failureError)
+            case "pending": .pending
+            default: .failed(failureError)
         }
 
-        let error = response["error"] as? String
+        // TODO: forward transactionId / originalTransactionId / productId to
+        // Helium analytics once the Helium iOS SDK exposes an API for it.
 
-        // Remove callback before executing to prevent multiple calls
-        pendingResponses.removeValue(forKey: transactionId)
-
-        callback(PurchaseResponse(
-            transactionId: transactionId,
-            status: status,
-            error: error
-        ))
+        callback(status)
     }
 
-    func handleRestoreResponse(_ response: NSDictionary) {
-        guard let transactionId = response["transactionId"] as? String,
-              let status = response["status"] as? String,
-              let callback = pendingResponses[transactionId] else {
-            return
-        }
-
-        // Remove callback before executing to prevent multiple calls
-        pendingResponses.removeValue(forKey: transactionId)
-
-        callback(PurchaseResponse(
-            transactionId: transactionId,
-            status: status,
-            error: nil
-        ))
+    func handleRestoreResult(success: Bool) {
+        guard let callback = pendingRestore else { return }
+        pendingRestore = nil
+        callback(success)
     }
 
     // MARK: - Event Queuing
@@ -159,64 +158,42 @@ private class PurchaseStateManager {
 class BridgingPaywallDelegate: HeliumPaywallDelegate {
 
     public func makePurchase(productId: String) async -> HeliumPaywallTransactionStatus {
-          return await withCheckedContinuation { continuation in
-              let transactionId = UUID().uuidString
-              // Store continuation callback in singleton
-              PurchaseStateManager.shared.pendingResponses[transactionId] = { response in
-                let userInfo: [String: Any] = [
-                    NSLocalizedDescriptionKey: response.error ?? "Failed to make purchase",
-                    NSLocalizedFailureReasonErrorKey: "An unknown error occurred",
-                    NSLocalizedRecoverySuggestionErrorKey: "Please try again later"
+        return await withCheckedContinuation { continuation in
+            // Resolve any orphaned prior purchase as cancelled before replacing.
+            if let existing = PurchaseStateManager.shared.pendingPurchase {
+                existing(.cancelled)
+            }
+            PurchaseStateManager.shared.pendingPurchase = { status in
+                continuation.resume(returning: status)
+            }
+
+            PurchaseStateManager.shared.safeSendEvent(
+                eventName: "onDelegateActionEvent",
+                eventData: [
+                    "type": "purchase",
+                    "productId": productId,
                 ]
-                let failureError = NSError(domain: "PaywallErrorDomain", code: 1001, userInfo: userInfo)
+            )
+        }
+    }
 
-                  let status: HeliumPaywallTransactionStatus = switch response.status {
-                      case "completed": .purchased
-                      case "purchased": .purchased
-                      case "cancelled": .cancelled
-                      case "restored": .restored
-                      case "failed": .failed(failureError)
-                      case "pending": .pending
-                      default: .failed(failureError)
-                  }
-                  continuation.resume(returning: status)
-              }
+    func restorePurchases() async -> Bool {
+        return await withCheckedContinuation { continuation in
+            if let existing = PurchaseStateManager.shared.pendingRestore {
+                existing(false)
+            }
+            PurchaseStateManager.shared.pendingRestore = { success in
+                continuation.resume(returning: success)
+            }
 
-              // Send event to initiate purchase via singleton's bridge reference
-              PurchaseStateManager.shared.safeSendEvent(
-                  eventName: "helium_make_purchase",
-                  eventData: [
-                      "productId": productId,
-                      "transactionId": transactionId,
-                      "status": "starting"
-                  ]
-              )
-          }
-      }
-
-
-
-  func restorePurchases() async -> Bool {
-      return await withCheckedContinuation { continuation in
-          let transactionId = UUID().uuidString
-
-          // Store continuation callback in singleton
-          PurchaseStateManager.shared.pendingResponses[transactionId] = { response in
-              // Convert string status to bool
-              let success = response.status == "restored"
-              continuation.resume(returning: success)
-          }
-
-          // Send event to initiate restore via singleton's bridge reference
-          PurchaseStateManager.shared.safeSendEvent(
-              eventName: "helium_restore_purchases",
-              eventData: [
-                  "transactionId": transactionId,
-                  "status": "starting"
-              ]
-          )
-      }
-  }
+            PurchaseStateManager.shared.safeSendEvent(
+                eventName: "onDelegateActionEvent",
+                eventData: [
+                    "type": "restore",
+                ]
+            )
+        }
+    }
 
 
     func onPaywallEvent(_ event: any HeliumEvent) {
@@ -234,7 +211,7 @@ class BridgingPaywallDelegate: HeliumPaywallDelegate {
         if let buttonName = eventDict["buttonName"] {
             eventDict["ctaName"] = buttonName
         }
-        PurchaseStateManager.shared.safeSendEvent(eventName: "helium_paywall_event", eventData: eventDict)
+        PurchaseStateManager.shared.safeSendEvent(eventName: "onHeliumPaywallEvent", eventData: eventDict)
     }
 
     func getCustomVariableValues() -> [String: Any?] {
@@ -252,9 +229,8 @@ class HeliumBridge: RCTEventEmitter {
 
    public override func supportedEvents() -> [String] {
        return [
-           "helium_paywall_event",
-           "helium_make_purchase",
-           "helium_restore_purchases",
+           "onHeliumPaywallEvent",
+           "onDelegateActionEvent",
            "helium_download_state_changed",
            "helium_fallback_visibility",
            "paywallEventHandlers"
@@ -317,7 +293,7 @@ class HeliumBridge: RCTEventEmitter {
             if let buttonName = eventDict["buttonName"] {
                 eventDict["ctaName"] = buttonName
             }
-            PurchaseStateManager.shared.safeSendEvent(eventName: "helium_paywall_event", eventData: eventDict)
+            PurchaseStateManager.shared.safeSendEvent(eventName: "onHeliumPaywallEvent", eventData: eventDict)
         }
 
         let bridgingDelegate = BridgingPaywallDelegate()
@@ -363,13 +339,25 @@ class HeliumBridge: RCTEventEmitter {
     }
 
   @objc
-  public func handlePurchaseResponse(_ response: NSDictionary) {
-      PurchaseStateManager.shared.handlePurchaseResponse(response)
+  public func handlePurchaseResult(
+      _ statusString: NSString,
+      error: NSString?,
+      transactionId: NSString?,
+      originalTransactionId: NSString?,
+      productId: NSString?
+  ) {
+      PurchaseStateManager.shared.handlePurchaseResult(
+          statusString: statusString as String,
+          error: error as String?,
+          transactionId: transactionId as String?,
+          originalTransactionId: originalTransactionId as String?,
+          productId: productId as String?
+      )
   }
 
   @objc
-  public func handleRestoreResponse(_ response: NSDictionary) {
-      PurchaseStateManager.shared.handleRestoreResponse(response)
+  public func handleRestoreResult(_ success: Bool) {
+      PurchaseStateManager.shared.handleRestoreResult(success: success)
   }
 
   @objc

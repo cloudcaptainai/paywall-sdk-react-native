@@ -48,9 +48,8 @@ const updateDownloadStatus = (status: HeliumDownloadStatus) => {
 };
 
 function setupEventListeners(config: HeliumConfig) {
-  // TODO(native): iOS/Android must emit events under these exact names to
-  // match the Expo module SDK: onHeliumPaywallEvent, onDelegateActionEvent,
-  // paywallEventHandlers, onHeliumLogEvent, onEntitledEvent.
+  // TODO(native): iOS/Android must emit onHeliumLogEvent and onEntitledEvent
+  // under these exact names to match the Expo module SDK (not yet wired).
   heliumEventEmitter.removeAllListeners('onHeliumPaywallEvent');
   heliumEventEmitter.removeAllListeners('onDelegateActionEvent');
   heliumEventEmitter.removeAllListeners('paywallEventHandlers');
@@ -84,7 +83,6 @@ function setupEventListeners(config: HeliumConfig) {
         try {
           if (event.type === 'purchase') {
             if (!event.productId) {
-              // TODO(native): handlePurchaseResult(status, errorMsg?, transactionId?, originalTransactionId?, productId?)
               HeliumBridge.handlePurchaseResult(
                 'failed',
                 'No product ID for purchase event.'
@@ -139,7 +137,6 @@ function setupEventListeners(config: HeliumConfig) {
             );
           } else if (event.type === 'restore') {
             const success = await purchaseConfig.restorePurchases();
-            // TODO(native): handleRestoreResult(success: boolean) — no transactionId.
             HeliumBridge.handleRestoreResult(success);
           }
         } catch (error) {
@@ -211,22 +208,6 @@ const buildNativeConfig = async (
     delegateType: config.purchaseConfig?._delegateType,
     androidConsumableProductIds: config.androidConsumableProductIds,
   };
-};
-
-/**
- * @internal Not part of the public API.
- */
-export const _setupCore = async (config: HeliumConfig) => {
-  if (isInitialized) return;
-  isInitialized = true;
-  setupEventListeners(config);
-  try {
-    const nativeConfig = await buildNativeConfig(config);
-    // TODO(native): add `HeliumBridge.setupCore(config)` matching Expo module SDK.
-    HeliumBridge.setupCore(nativeConfig);
-  } catch (error) {
-    console.error('[Helium] Setup failed:', error);
-  }
 };
 
 export const initialize = async (config: HeliumConfig) => {
@@ -423,6 +404,9 @@ export const getPaywallInfo = async (
   };
 };
 
+/**
+ * @deprecated Deep link handling is being replaced with paywall previews.
+ */
 export const handleDeepLink = async (url: string | null): Promise<boolean> => {
   if (!url) return false;
   // TODO(native): update HeliumBridge.handleDeepLink to return a boolean via

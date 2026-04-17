@@ -3,7 +3,6 @@ export * from './HeliumExperimentInfo.types';
 
 export {
   initialize,
-  _setupCore,
   presentUpsell,
   hideUpsell,
   hideAllUpsells,

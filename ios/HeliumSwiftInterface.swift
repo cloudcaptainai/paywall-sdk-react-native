@@ -286,7 +286,7 @@ class HeliumBridge: RCTEventEmitter {
 
         let paywallLoadingConfig = convertMarkersToBooleans(config["paywallLoadingConfig"] as? [String: Any])
         let useLoadingState = paywallLoadingConfig?["useLoadingState"] as? Bool ?? true
-        let loadingBudget = paywallLoadingConfig?["loadingBudget"] as? TimeInterval ?? 2.0
+        let loadingBudget = paywallLoadingConfig?["loadingBudget"] as? TimeInterval ?? 7.0
 
         var perTriggerLoadingConfig: [String: TriggerLoadingConfig]? = nil
         if let perTriggerDict = paywallLoadingConfig?["perTriggerLoadingConfig"] as? [String: [String: Any]] {

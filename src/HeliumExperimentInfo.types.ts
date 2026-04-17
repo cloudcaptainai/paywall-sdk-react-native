@@ -77,6 +77,11 @@ export interface ExperimentInfo {
   experimentId?: string;
 
   /**
+   * Experiment version ID - identifies a specific version/iteration of the experiment
+   */
+  experimentVersionId?: string;
+
+  /**
    * Experiment type (e.g., "A/B/n test")
    */
   experimentType?: string;

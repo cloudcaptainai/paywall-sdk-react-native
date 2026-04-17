@@ -8,7 +8,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class PaywallSdkReactNativePackage : ReactPackage {
   override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-    return listOf(HeliumBridge(reactContext))
+    return listOf(PaywallSdkReactNativeModule(reactContext))
   }
 
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {

@@ -17,6 +17,13 @@ import type {
 import type { ExperimentInfo } from './HeliumExperimentInfo.types';
 
 const { HeliumBridge } = NativeModules;
+
+let SDK_VERSION = 'unknown';
+try {
+  SDK_VERSION = require('@tryheliumai/paywall-sdk-react-native/package.json').version;
+} catch {
+  // package.json can't be loaded, accept that we won't get wrapper sdk version
+}
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 // Register the native component once at module level
@@ -39,6 +46,7 @@ export const initialize = async (config: HeliumConfig) => {
     console.log('[Helium] Already initialized, skipping...');
     return;
   }
+  isInitialized = true;
 
   const purchaseHandler = config.purchaseConfig ? config.purchaseConfig : null;
 
@@ -66,7 +74,7 @@ export const initialize = async (config: HeliumConfig) => {
       handlePaywallEvent(event);
 
       // Forward all events to the callback provided in config
-      config.onHeliumPaywallEvent(event);
+      config.onHeliumPaywallEvent?.(event);
     }
   );
 
@@ -190,12 +198,10 @@ export const initialize = async (config: HeliumConfig) => {
         config.paywallLoadingConfig
       ),
       useDefaultDelegate: !config.purchaseConfig,
+      wrapperSdkVersion: SDK_VERSION,
     },
     {}
   );
-
-  // Mark as initialized after successful initialization
-  isInitialized = true;
 };
 
 let paywallEventHandlers: PaywallEventHandlers | undefined;
@@ -419,7 +425,15 @@ export const getExperimentInfoForTrigger = async (
  * Reset Helium entirely so you can call initialize again. Only for advanced use cases.
  */
 export const resetHelium = () => {
+  paywallEventHandlers = undefined;
+  presentOnFallback = undefined;
+  heliumEventEmitter.removeAllListeners('helium_paywall_event');
+  heliumEventEmitter.removeAllListeners('paywallEventHandlers');
+  heliumEventEmitter.removeAllListeners('helium_make_purchase');
+  heliumEventEmitter.removeAllListeners('helium_restore_purchases');
   HeliumBridge.resetHelium();
+  globalDownloadStatus = 'notStarted';
+  isInitialized = false;
 };
 
 /**

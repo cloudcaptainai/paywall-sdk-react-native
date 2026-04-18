@@ -27,6 +27,10 @@ const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 let isInitialized = false;
 
+export const getDownloadStatus = async (): Promise<HeliumDownloadStatus> => {
+  return HeliumBridge.getDownloadStatus();
+};
+
 const HELIUM_EVENT_NAMES = [
   'onHeliumPaywallEvent',
   'onDelegateActionEvent',
@@ -37,12 +41,12 @@ const HELIUM_EVENT_NAMES = [
 
 const removeAllHeliumListeners = () => {
   for (const name of HELIUM_EVENT_NAMES) {
-    heliumEventEmitter.removeAllListeners(name);
+    try {
+      heliumEventEmitter.removeAllListeners(name);
+    } catch (e) {
+      console.warn(`[Helium] Failed to remove listeners for ${name}:`, e);
+    }
   }
-};
-
-export const getDownloadStatus = async (): Promise<HeliumDownloadStatus> => {
-  return HeliumBridge.getDownloadStatus();
 };
 
 function setupEventListeners(config: HeliumConfig) {
@@ -200,6 +204,10 @@ const buildNativeConfig = async (
 
 export const initialize = async (config: HeliumConfig) => {
   if (isInitialized) return;
+  if (!config.apiKey) {
+    console.error('[Helium] initialize called without an apiKey; aborting.');
+    return;
+  }
   isInitialized = true;
   try {
     setupEventListeners(config);

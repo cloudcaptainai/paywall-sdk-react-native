@@ -92,12 +92,7 @@ private object BridgeStateManager {
                 return@forEach
             }
             if (!bridge.sendEvent(event.eventName, event.eventData)) {
-                // Failed to emit — re-queue
-                synchronized(pendingEvents) {
-                    if (pendingEvents.size < MAX_QUEUED_EVENTS) {
-                        pendingEvents.add(event)
-                    }
-                }
+                Log.w(TAG, "Failed to flush event ${event.eventName}, dropping")
             }
         }
     }
@@ -179,10 +174,14 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun initialize(config: ReadableMap) {
+        val apiKey = config.getString("apiKey")
+        if (apiKey.isNullOrEmpty()) {
+            Log.e(TAG, "initialize called with missing/empty apiKey; aborting.")
+            return
+        }
+
         BridgeStateManager.currentBridge = this
         BridgeStateManager.flushEvents(this)
-
-        val apiKey = config.getString("apiKey") ?: return
         val customUserId = if (config.hasKey("customUserId")) config.getString("customUserId") else null
         val customAPIEndpoint = if (config.hasKey("customAPIEndpoint")) config.getString("customAPIEndpoint") else null
         val revenueCatAppUserId = if (config.hasKey("revenueCatAppUserId")) config.getString("revenueCatAppUserId") else null
@@ -362,7 +361,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         val continuation = BridgeStateManager.purchaseContinuation ?: return
 
         val status: HeliumPaywallTransactionStatus = when (statusString.lowercase()) {
-            "completed", "purchased" -> HeliumPaywallTransactionStatus.Purchased
+            "purchased" -> HeliumPaywallTransactionStatus.Purchased
             "cancelled" -> HeliumPaywallTransactionStatus.Cancelled
             "restored" -> HeliumPaywallTransactionStatus.Purchased  // Android SDK has no Restored, map to Purchased
             "pending" -> HeliumPaywallTransactionStatus.Pending

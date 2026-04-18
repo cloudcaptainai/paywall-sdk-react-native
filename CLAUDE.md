@@ -28,4 +28,8 @@ Relevant files for bridge changes:
 
 ## Commands
 
-See `scripts` in `package.json`. Common ones: `yarn typecheck`, `yarn lint`, `yarn test`, `yarn prepare` (builds via `react-native-builder-bob`), `yarn example` (runs the example workspace).
+See `scripts` in `package.json`. `yarn prepare` builds the SDK via `react-native-builder-bob`.
+
+## Example app
+
+`example/` is a standalone Expo 51 project (not a yarn workspace) that consumes the SDK via `"@tryheliumai/paywall-sdk-react-native": "file:.."`. Native folders are gitignored — regenerate with `cd example && npx expo prebuild --clean`, then run via `npx expo run:ios` / `run:android`.

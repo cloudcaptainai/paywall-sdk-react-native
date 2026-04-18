@@ -31,8 +31,12 @@ private class PurchaseStateManager {
 
     var currentBridge: HeliumBridge?
 
-    var activePurchaseContinuation: CheckedContinuation<HeliumPaywallTransactionStatus, Never>?
-    var activeRestoreContinuation: CheckedContinuation<Bool, Never>?
+    // Guards the active purchase/restore continuations against cross-thread races between
+    // the RN bridge methodQueue (handlePurchaseResult) and the Swift-concurrency executor
+    // (makePurchase). Without it, both sides can double-resume and CheckedContinuation traps.
+    private let continuationLock = NSLock()
+    private var _activePurchaseContinuation: CheckedContinuation<HeliumPaywallTransactionStatus, Never>?
+    private var _activeRestoreContinuation: CheckedContinuation<Bool, Never>?
 
     private var _latestTransactionResult: HeliumTransactionIdResult?
     private let transactionResultLock = NSLock()
@@ -53,12 +57,36 @@ private class PurchaseStateManager {
 
     private init() {}
 
-    func clearPurchase() {
-        activePurchaseContinuation = nil
+    func setPurchaseContinuation(_ continuation: CheckedContinuation<HeliumPaywallTransactionStatus, Never>) {
+        continuationLock.lock()
+        let orphan = _activePurchaseContinuation
+        _activePurchaseContinuation = continuation
+        continuationLock.unlock()
+        orphan?.resume(returning: .cancelled)
     }
 
-    func clearRestore() {
-        activeRestoreContinuation = nil
+    func takePurchaseContinuation() -> CheckedContinuation<HeliumPaywallTransactionStatus, Never>? {
+        continuationLock.lock()
+        defer { continuationLock.unlock() }
+        let continuation = _activePurchaseContinuation
+        _activePurchaseContinuation = nil
+        return continuation
+    }
+
+    func setRestoreContinuation(_ continuation: CheckedContinuation<Bool, Never>) {
+        continuationLock.lock()
+        let orphan = _activeRestoreContinuation
+        _activeRestoreContinuation = continuation
+        continuationLock.unlock()
+        orphan?.resume(returning: false)
+    }
+
+    func takeRestoreContinuation() -> CheckedContinuation<Bool, Never>? {
+        continuationLock.lock()
+        defer { continuationLock.unlock() }
+        let continuation = _activeRestoreContinuation
+        _activeRestoreContinuation = nil
+        return continuation
     }
 
     // MARK: - Event Queuing
@@ -280,7 +308,7 @@ class HeliumBridge: RCTEventEmitter {
         originalTransactionId: NSString?,
         productId: NSString?
     ) {
-        guard let continuation = PurchaseStateManager.shared.activePurchaseContinuation else {
+        guard let continuation = PurchaseStateManager.shared.takePurchaseContinuation() else {
             print("[Helium] handlePurchaseResult called with no active continuation")
             return
         }
@@ -310,17 +338,15 @@ class HeliumBridge: RCTEventEmitter {
             status = .failed(PurchaseError.unknownStatus(status: lowercasedStatus))
         }
 
-        PurchaseStateManager.shared.clearPurchase()
         continuation.resume(returning: status)
     }
 
     @objc
     public func handleRestoreResult(_ success: Bool) {
-        guard let continuation = PurchaseStateManager.shared.activeRestoreContinuation else {
+        guard let continuation = PurchaseStateManager.shared.takeRestoreContinuation() else {
             print("[Helium] handleRestoreResult called with no active continuation")
             return
         }
-        PurchaseStateManager.shared.clearRestore()
         continuation.resume(returning: success)
     }
 
@@ -591,13 +617,8 @@ private class InternalDelegate: HeliumPaywallDelegate, HeliumDelegateReturnsTran
     public func makePurchase(productId: String) async -> HeliumPaywallTransactionStatus {
         PurchaseStateManager.shared.latestTransactionResult = nil
 
-        if let existing = PurchaseStateManager.shared.activePurchaseContinuation {
-            existing.resume(returning: .cancelled)
-            PurchaseStateManager.shared.clearPurchase()
-        }
-
         return await withCheckedContinuation { continuation in
-            PurchaseStateManager.shared.activePurchaseContinuation = continuation
+            PurchaseStateManager.shared.setPurchaseContinuation(continuation)
 
             PurchaseStateManager.shared.safeSendEvent(
                 eventName: "onDelegateActionEvent",
@@ -610,13 +631,8 @@ private class InternalDelegate: HeliumPaywallDelegate, HeliumDelegateReturnsTran
     }
 
     public func restorePurchases() async -> Bool {
-        if let existing = PurchaseStateManager.shared.activeRestoreContinuation {
-            existing.resume(returning: false)
-            PurchaseStateManager.shared.clearRestore()
-        }
-
         return await withCheckedContinuation { continuation in
-            PurchaseStateManager.shared.activeRestoreContinuation = continuation
+            PurchaseStateManager.shared.setRestoreContinuation(continuation)
 
             PurchaseStateManager.shared.safeSendEvent(
                 eventName: "onDelegateActionEvent",

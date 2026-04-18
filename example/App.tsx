@@ -12,10 +12,11 @@ import {
   resetHelium,
 } from '@tryheliumai/paywall-sdk-react-native';
 
-// ─── Replace these before running ─────────────────────────────────────────────
-const HELIUM_API_KEY = 'REPLACE_ME';
-const TRIGGER_NAME = 'REPLACE_ME';
-// ──────────────────────────────────────────────────────────────────────────────
+// Values come from .env (see .env.example). Placeholders only apply if the
+// env var is missing — fine for building the app but all Helium calls will
+// fail until you fill them in.
+const HELIUM_API_KEY = process.env.EXPO_PUBLIC_HELIUM_API_KEY ?? 'REPLACE_ME';
+const TRIGGER_NAME = process.env.EXPO_PUBLIC_HELIUM_TRIGGER ?? 'REPLACE_ME';
 
 export default function App() {
   const [customUserId, setCustomUserIdState] = useState<string | null>(null);

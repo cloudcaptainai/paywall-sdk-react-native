@@ -46,7 +46,6 @@
     "!**/.*"
   ],
   "scripts": {
-    "example": "yarn workspace paywall-sdk-react-native-example",
     "test": "jest",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
@@ -105,9 +104,6 @@
       "optional": true
     }
   },
-  "workspaces": [
-    "example"
-  ],
   "packageManager": "yarn@3.6.1",
   "jest": {
     "preset": "react-native",

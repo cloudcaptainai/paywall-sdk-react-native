@@ -1,36 +1,34 @@
 {
   "name": "paywall-sdk-react-native-example",
-  "version": "0.0.1",
+  "version": "1.0.0",
+  "main": "index.ts",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
-    "start": "react-native start",
-    "build:android": "react-native build-android --extra-params \"--no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a\"",
-    "build:ios": "react-native build-ios --scheme PaywallSdkReactNativeExample --mode Debug --extra-params \"-sdk iphonesimulator CC=clang CPLUSPLUS=clang++ LD=clang LDPLUSPLUS=clang++ GCC_OPTIMIZATION_LEVEL=0 GCC_PRECOMPILE_PREFIX_HEADER=YES ASSETCATALOG_COMPILER_OPTIMIZATION=time DEBUG_INFORMATION_FORMAT=dwarf COMPILER_INDEX_STORE_ENABLE=NO\""
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "prebuild": "expo prebuild --clean"
   },
   "dependencies": {
-    "@amplitude/analytics-react-native": "^1.4.13",
-    "@react-navigation/native": "^7.0.15",
-    "react": "18.3.1",
-    "react-native": "0.74.0",
-    "react-native-purchases": "^8.7.0",
-    "react-native-safe-area-context": "^5.3.0",
-    "react-native-screens": "^4.9.1"
+    "@tryheliumai/paywall-sdk-react-native": "file:..",
+    "expo": "~51.0.0",
+    "expo-build-properties": "~0.12.5",
+    "expo-crypto": "~13.0.2",
+    "expo-file-system": "~17.0.1",
+    "expo-status-bar": "~1.12.1",
+    "react": "18.2.0",
+    "react-native": "0.74.5"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@babel/preset-env": "^7.25.3",
-    "@babel/runtime": "^7.25.0",
-    "@react-native-community/cli": "15.0.1",
-    "@react-native-community/cli-platform-android": "15.0.1",
-    "@react-native-community/cli-platform-ios": "15.0.1",
-    "@react-native/babel-preset": "0.74.0",
-    "@react-native/metro-config": "0.74.0",
-    "@react-native/typescript-config": "0.74.0",
-    "react-native-builder-bob": "^0.37.0"
+    "@babel/core": "^7.20.0",
+    "@types/react": "~18.2.79",
+    "typescript": "~5.3.3"
   },
-  "engines": {
-    "node": ">=18"
+  "expo": {
+    "install": {
+      "exclude": [
+        "@tryheliumai/paywall-sdk-react-native"
+      ]
+    }
   }
 }

@@ -42,9 +42,17 @@ private object BridgeStateManager {
     private const val MAX_QUEUED_EVENTS = 30
     private const val EVENT_EXPIRATION_MS = 30_000L
 
+    // Guards the active purchase/restore continuations against cross-thread races between
+    // the RN module thread (handlePurchaseResult) and the Helium SDK coroutine dispatcher
+    // (makePurchase).
+    private val continuationLock = Any()
+    private var _purchaseContinuation: ((HeliumPaywallTransactionStatus) -> Unit)? = null
+    private var _restoreContinuation: ((Boolean) -> Unit)? = null
+
+    // Written on the RN module thread; read from background threads (Helium log listener,
+    // SDK coroutine dispatcher). @Volatile ensures cross-thread visibility of the reference.
+    @Volatile
     var currentBridge: HeliumBridge? = null
-    var purchaseContinuation: ((HeliumPaywallTransactionStatus) -> Unit)? = null
-    var restoreContinuation: ((Boolean) -> Unit)? = null
 
     private data class PendingEvent(
         val eventName: String,
@@ -53,12 +61,52 @@ private object BridgeStateManager {
     )
     private val pendingEvents = mutableListOf<PendingEvent>()
 
-    fun clearPurchase() {
-        purchaseContinuation = null
+    fun setPurchaseContinuation(continuation: (HeliumPaywallTransactionStatus) -> Unit) {
+        val orphan = synchronized(continuationLock) {
+            val existing = _purchaseContinuation
+            _purchaseContinuation = continuation
+            existing
+        }
+        orphan?.invoke(HeliumPaywallTransactionStatus.Cancelled)
     }
 
-    fun clearRestore() {
-        restoreContinuation = null
+    fun takePurchaseContinuation(): ((HeliumPaywallTransactionStatus) -> Unit)? = synchronized(continuationLock) {
+        val c = _purchaseContinuation
+        _purchaseContinuation = null
+        c
+    }
+
+    // Cancellation handler clears only its own continuation — a later setPurchaseContinuation
+    // could already have replaced the stored value, and we must not wipe that newer one.
+    fun clearPurchaseContinuationIf(expected: (HeliumPaywallTransactionStatus) -> Unit) {
+        synchronized(continuationLock) {
+            if (_purchaseContinuation === expected) {
+                _purchaseContinuation = null
+            }
+        }
+    }
+
+    fun setRestoreContinuation(continuation: (Boolean) -> Unit) {
+        val orphan = synchronized(continuationLock) {
+            val existing = _restoreContinuation
+            _restoreContinuation = continuation
+            existing
+        }
+        orphan?.invoke(false)
+    }
+
+    fun takeRestoreContinuation(): ((Boolean) -> Unit)? = synchronized(continuationLock) {
+        val c = _restoreContinuation
+        _restoreContinuation = null
+        c
+    }
+
+    fun clearRestoreContinuationIf(expected: (Boolean) -> Unit) {
+        synchronized(continuationLock) {
+            if (_restoreContinuation === expected) {
+                _restoreContinuation = null
+            }
+        }
     }
 
     private fun queueEvent(eventName: String, eventData: Map<String, Any?>) {
@@ -358,7 +406,11 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         originalTransactionId: String?,
         productId: String?
     ) {
-        val continuation = BridgeStateManager.purchaseContinuation ?: return
+        val continuation = BridgeStateManager.takePurchaseContinuation()
+        if (continuation == null) {
+            Log.w(TAG, "handlePurchaseResult called with no active continuation")
+            return
+        }
 
         val status: HeliumPaywallTransactionStatus = when (statusString.lowercase()) {
             "purchased" -> HeliumPaywallTransactionStatus.Purchased
@@ -373,17 +425,16 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
             )
         }
 
-        // TODO: forward transactionId / originalTransactionId / productId to
-        // Helium analytics once the Helium Android SDK exposes an API for it.
-
-        BridgeStateManager.clearPurchase()
         continuation(status)
     }
 
     @ReactMethod
     fun handleRestoreResult(success: Boolean) {
-        val continuation = BridgeStateManager.restoreContinuation ?: return
-        BridgeStateManager.clearRestore()
+        val continuation = BridgeStateManager.takeRestoreContinuation()
+        if (continuation == null) {
+            Log.w(TAG, "handleRestoreResult called with no active continuation")
+            return
+        }
         continuation(success)
     }
 
@@ -737,17 +788,13 @@ private class CustomPaywallDelegate(
         offerId: String?
     ): HeliumPaywallTransactionStatus {
         return suspendCancellableCoroutine { continuation ->
-            BridgeStateManager.purchaseContinuation?.let { existing ->
-                existing(HeliumPaywallTransactionStatus.Cancelled)
-                BridgeStateManager.clearPurchase()
-            }
-
-            BridgeStateManager.purchaseContinuation = { status ->
+            val resumeCallback: (HeliumPaywallTransactionStatus) -> Unit = { status ->
                 continuation.resume(status)
             }
+            BridgeStateManager.setPurchaseContinuation(resumeCallback)
 
             continuation.invokeOnCancellation {
-                BridgeStateManager.clearPurchase()
+                BridgeStateManager.clearPurchaseContinuationIf(resumeCallback)
             }
 
             val eventMap = mutableMapOf<String, Any?>(
@@ -763,17 +810,13 @@ private class CustomPaywallDelegate(
 
     override suspend fun restorePurchases(): Boolean {
         return suspendCancellableCoroutine { continuation ->
-            BridgeStateManager.restoreContinuation?.let { existing ->
-                existing(false)
-                BridgeStateManager.clearRestore()
-            }
-
-            BridgeStateManager.restoreContinuation = { success ->
+            val resumeCallback: (Boolean) -> Unit = { success ->
                 continuation.resume(success)
             }
+            BridgeStateManager.setRestoreContinuation(resumeCallback)
 
             continuation.invokeOnCancellation {
-                BridgeStateManager.clearRestore()
+                BridgeStateManager.clearRestoreContinuationIf(resumeCallback)
             }
 
             BridgeStateManager.safeSendEvent(

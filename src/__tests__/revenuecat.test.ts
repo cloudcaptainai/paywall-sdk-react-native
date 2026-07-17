@@ -143,6 +143,7 @@ describe('makePurchaseIOS', () => {
 
     expect(result.status).toBe('failed');
     expect(result.error).toContain('product not found: missing_product');
+    expect(mockPurchases.getProducts).toHaveBeenCalledTimes(2);
     expect(mockPurchases.purchaseStoreProduct).not.toHaveBeenCalled();
   });
 
@@ -200,13 +201,25 @@ describe('makePurchaseAndroid', () => {
     expect(result.status).toBe('purchased');
   });
 
-  it('purchases the subscription option matching basePlanId when no offer matches', async () => {
+  it('purchases the subscription option matching basePlanId when only a base plan is provided', async () => {
     const options = [{ id: 'monthly' }, { id: 'annual' }];
     mockPurchases.getProducts.mockResolvedValue([product('pro_monthly', options)]);
     mockPurchases.purchaseSubscriptionOption.mockResolvedValue(purchaseResult('pro_monthly'));
     const config = createRevenueCatPurchaseConfig();
 
     const result = await config.makePurchaseAndroid!('pro_monthly', 'monthly');
+
+    expect(mockPurchases.purchaseSubscriptionOption).toHaveBeenCalledWith(options[0]);
+    expect(result.status).toBe('purchased');
+  });
+
+  it('purchases the base plan option when the requested offer does not exist', async () => {
+    const options = [{ id: 'monthly' }, { id: 'monthly:intro' }];
+    mockPurchases.getProducts.mockResolvedValue([product('pro_monthly', options)]);
+    mockPurchases.purchaseSubscriptionOption.mockResolvedValue(purchaseResult('pro_monthly'));
+    const config = createRevenueCatPurchaseConfig();
+
+    const result = await config.makePurchaseAndroid!('pro_monthly', 'monthly', 'no_such_offer');
 
     expect(mockPurchases.purchaseSubscriptionOption).toHaveBeenCalledWith(options[0]);
     expect(result.status).toBe('purchased');
@@ -251,5 +264,24 @@ describe('restorePurchases', () => {
     const config = createRevenueCatPurchaseConfig();
 
     await expect(config.restorePurchases()).resolves.toBe(false);
+  });
+
+  it('waits for setup to finish before calling restore', async () => {
+    let finishConfiguredCheck!: (configured: boolean) => void;
+    mockPurchases.isConfigured.mockReturnValue(
+      new Promise((resolve) => {
+        finishConfiguredCheck = resolve;
+      })
+    );
+    mockPurchases.restorePurchases.mockResolvedValue(activeCustomerInfo('pro_monthly'));
+    const config = createRevenueCatPurchaseConfig({ apiKey: 'rc-key' });
+
+    const restorePromise = config.restorePurchases();
+    await flushMicrotasks();
+    expect(mockPurchases.restorePurchases).not.toHaveBeenCalled();
+
+    finishConfiguredCheck(false);
+    await expect(restorePromise).resolves.toBe(true);
+    expect(mockPurchases.configure).toHaveBeenCalledWith({ apiKey: 'rc-key' });
   });
 });

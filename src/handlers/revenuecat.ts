@@ -297,6 +297,7 @@ export class RevenueCatHeliumHandler {
   }
 
   async restorePurchases(): Promise<boolean> {
+    await this.setUpPromise;
     try {
       const customerInfo = await Purchases.restorePurchases();
       return Object.keys(customerInfo.entitlements.active).length > 0;

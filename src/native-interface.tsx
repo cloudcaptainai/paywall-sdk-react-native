@@ -231,71 +231,81 @@ export const presentUpsell = ({
 
 function callPaywallEventHandlers(event: HeliumPaywallEvent) {
   if (paywallEventHandlers) {
-    switch (event.type) {
-      case 'paywallOpen':
-        paywallEventHandlers?.onOpen?.({
-          type: 'paywallOpen',
-          triggerName: event.triggerName ?? 'unknown',
-          paywallName: event.paywallName ?? 'unknown',
-          paywallUnavailableReason: event.paywallUnavailableReason,
-          isSecondTry: event.isSecondTry ?? false,
-          loadTimeTakenMS: event.loadTimeTakenMS,
-          loadingBudgetMS: event.loadingBudgetMS,
-          viewType: 'presented',
-        });
-        break;
-      case 'paywallClose':
-        paywallEventHandlers?.onClose?.({
-          type: 'paywallClose',
-          triggerName: event.triggerName ?? 'unknown',
-          paywallName: event.paywallName ?? 'unknown',
-          isSecondTry: event.isSecondTry ?? false,
-        });
-        break;
-      case 'paywallDismissed':
-        paywallEventHandlers?.onDismissed?.({
-          type: 'paywallDismissed',
-          triggerName: event.triggerName ?? 'unknown',
-          paywallName: event.paywallName ?? 'unknown',
-          isSecondTry: event.isSecondTry ?? false,
-        });
-        break;
-      case 'purchaseSucceeded':
-        paywallEventHandlers?.onPurchaseSucceeded?.({
-          type: 'purchaseSucceeded',
-          productId: event.productId ?? 'unknown',
-          triggerName: event.triggerName ?? 'unknown',
-          paywallName: event.paywallName ?? 'unknown',
-          isSecondTry: event.isSecondTry ?? false,
-          paymentProcessor: event.paymentProcessor,
-        });
-        break;
-      case 'paywallOpenFailed':
-        paywallEventHandlers?.onOpenFailed?.({
-          type: 'paywallOpenFailed',
-          triggerName: event.triggerName ?? 'unknown',
-          paywallName: event.paywallName ?? 'unknown',
-          error: event.error ?? 'Unknown error',
-          paywallUnavailableReason: event.paywallUnavailableReason,
-          isSecondTry: event.isSecondTry ?? false,
-          loadTimeTakenMS: event.loadTimeTakenMS,
-          loadingBudgetMS: event.loadingBudgetMS,
-        });
-        break;
-      case 'customPaywallAction':
-        paywallEventHandlers?.onCustomPaywallAction?.({
-          type: 'customPaywallAction',
-          triggerName: event.triggerName ?? 'unknown',
-          paywallName: event.paywallName ?? 'unknown',
-          actionName: event.customPaywallActionName ?? 'unknown',
-          params: event.customPaywallActionParams ?? {},
-          isSecondTry: event.isSecondTry ?? false,
-        });
-        break;
+    try {
+      dispatchTypedPaywallEventHandler(event);
+    } catch (e) {
+      console.error('[Helium] paywall event handler threw', e);
     }
     try {
       paywallEventHandlers?.onAnyEvent?.(event);
-    } catch {}
+    } catch (e) {
+      console.error('[Helium] onAnyEvent handler threw', e);
+    }
+  }
+}
+
+function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
+  switch (event.type) {
+    case 'paywallOpen':
+      paywallEventHandlers?.onOpen?.({
+        type: 'paywallOpen',
+        triggerName: event.triggerName ?? 'unknown',
+        paywallName: event.paywallName ?? 'unknown',
+        paywallUnavailableReason: event.paywallUnavailableReason,
+        isSecondTry: event.isSecondTry ?? false,
+        loadTimeTakenMS: event.loadTimeTakenMS,
+        loadingBudgetMS: event.loadingBudgetMS,
+        viewType: 'presented',
+      });
+      break;
+    case 'paywallClose':
+      paywallEventHandlers?.onClose?.({
+        type: 'paywallClose',
+        triggerName: event.triggerName ?? 'unknown',
+        paywallName: event.paywallName ?? 'unknown',
+        isSecondTry: event.isSecondTry ?? false,
+      });
+      break;
+    case 'paywallDismissed':
+      paywallEventHandlers?.onDismissed?.({
+        type: 'paywallDismissed',
+        triggerName: event.triggerName ?? 'unknown',
+        paywallName: event.paywallName ?? 'unknown',
+        isSecondTry: event.isSecondTry ?? false,
+      });
+      break;
+    case 'purchaseSucceeded':
+      paywallEventHandlers?.onPurchaseSucceeded?.({
+        type: 'purchaseSucceeded',
+        productId: event.productId ?? 'unknown',
+        triggerName: event.triggerName ?? 'unknown',
+        paywallName: event.paywallName ?? 'unknown',
+        isSecondTry: event.isSecondTry ?? false,
+        paymentProcessor: event.paymentProcessor,
+      });
+      break;
+    case 'paywallOpenFailed':
+      paywallEventHandlers?.onOpenFailed?.({
+        type: 'paywallOpenFailed',
+        triggerName: event.triggerName ?? 'unknown',
+        paywallName: event.paywallName ?? 'unknown',
+        error: event.error ?? 'Unknown error',
+        paywallUnavailableReason: event.paywallUnavailableReason,
+        isSecondTry: event.isSecondTry ?? false,
+        loadTimeTakenMS: event.loadTimeTakenMS,
+        loadingBudgetMS: event.loadingBudgetMS,
+      });
+      break;
+    case 'customPaywallAction':
+      paywallEventHandlers?.onCustomPaywallAction?.({
+        type: 'customPaywallAction',
+        triggerName: event.triggerName ?? 'unknown',
+        paywallName: event.paywallName ?? 'unknown',
+        actionName: event.customPaywallActionName ?? 'unknown',
+        params: event.customPaywallActionParams ?? {},
+        isSecondTry: event.isSecondTry ?? false,
+      });
+      break;
   }
 }
 

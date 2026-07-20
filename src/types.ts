@@ -186,7 +186,6 @@ export type HeliumPaywallEvent = {
     | 'purchaseRestored'
     | 'purchaseRestoreFailed'
     | 'purchasePending'
-    | 'initializeStart'
     | 'initializeCalled'
     | 'paywallsDownloadSuccess'
     | 'paywallsDownloadError'

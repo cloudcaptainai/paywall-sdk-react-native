@@ -114,6 +114,18 @@ describe('heliumTesting', () => {
   });
 });
 
+describe('presentUpsell', () => {
+  it('defaults omitted boolean args (bridge BOOLs are non-nullable)', () => {
+    Helium.presentUpsell({ triggerName: 'my_trigger' });
+    expect(bridge.presentUpsell).toHaveBeenCalledWith(
+      'my_trigger',
+      undefined,
+      false,
+      false
+    );
+  });
+});
+
 describe('setPaywallPreviewsEnabledInDevBuilds', () => {
   it('passes through to the bridge', () => {
     Helium.setPaywallPreviewsEnabledInDevBuilds(false);

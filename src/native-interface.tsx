@@ -214,8 +214,10 @@ export const presentUpsell = ({
     HeliumBridge.presentUpsell(
       triggerName,
       convertBooleansToMarkers(customPaywallTraits),
-      dontShowIfAlreadyEntitled,
-      androidDisableSystemBackNavigation
+      // BOOL/Boolean bridge args are non-nullable primitives; undefined aborts
+      // the native call with RCTLogArgumentError before it is invoked.
+      dontShowIfAlreadyEntitled ?? false,
+      androidDisableSystemBackNavigation ?? false
     );
   } catch (error) {
     console.log('[Helium] presentUpsell error', error);

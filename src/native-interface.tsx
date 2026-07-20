@@ -235,7 +235,10 @@ function callPaywallEventHandlers(event: HeliumPaywallEvent) {
           type: 'paywallOpen',
           triggerName: event.triggerName ?? 'unknown',
           paywallName: event.paywallName ?? 'unknown',
+          paywallUnavailableReason: event.paywallUnavailableReason,
           isSecondTry: event.isSecondTry ?? false,
+          loadTimeTakenMS: event.loadTimeTakenMS,
+          loadingBudgetMS: event.loadingBudgetMS,
           viewType: 'presented',
         });
         break;
@@ -273,6 +276,8 @@ function callPaywallEventHandlers(event: HeliumPaywallEvent) {
           error: event.error ?? 'Unknown error',
           paywallUnavailableReason: event.paywallUnavailableReason,
           isSecondTry: event.isSecondTry ?? false,
+          loadTimeTakenMS: event.loadTimeTakenMS,
+          loadingBudgetMS: event.loadingBudgetMS,
         });
         break;
       case 'customPaywallAction':

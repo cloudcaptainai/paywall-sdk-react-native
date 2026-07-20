@@ -683,6 +683,65 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     }
 
     // -------------------------------------------------------------------------
+    // Web Checkout (Stripe/Paddle) — iOS-only for now. The JS layer platform-gates
+    // these calls; the no-ops below keep the bridge surface in sync with iOS.
+    // -------------------------------------------------------------------------
+
+    @ReactMethod
+    fun heliumHandleURL(urlString: String, promise: Promise) {
+        promise.resolve(null)
+    }
+
+    @ReactMethod
+    fun enableExternalWebCheckout(
+        successURL: String,
+        cancelURL: String,
+        paymentProcessors: ReadableArray?
+    ) {
+    }
+
+    @ReactMethod
+    fun disableExternalWebCheckout() {
+    }
+
+    @ReactMethod
+    fun setAllowWebCheckoutWithoutUserId(allow: Boolean) {
+    }
+
+    @ReactMethod
+    fun hasActiveStripeEntitlement(promise: Promise) {
+        promise.resolve(false)
+    }
+
+    @ReactMethod
+    fun hasActivePaddleEntitlement(promise: Promise) {
+        promise.resolve(false)
+    }
+
+    @ReactMethod
+    fun createStripePortalSession(returnUrl: String, promise: Promise) {
+        promise.resolve("")
+    }
+
+    @ReactMethod
+    fun resetStripeEntitlements() {
+    }
+
+    @ReactMethod
+    fun createPaddlePortalSession(promise: Promise) {
+        promise.resolve("")
+    }
+
+    @ReactMethod
+    fun getPaddleCustomerId(promise: Promise) {
+        promise.resolve(null)
+    }
+
+    @ReactMethod
+    fun resetPaddleEntitlements() {
+    }
+
+    // -------------------------------------------------------------------------
     // Download Status
     // -------------------------------------------------------------------------
 

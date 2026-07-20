@@ -620,6 +620,135 @@ class HeliumBridge: RCTEventEmitter {
         Helium.testing.reset()
     }
 
+    // MARK: - Web Checkout (Stripe/Paddle)
+
+    @objc
+    public func heliumHandleURL(
+        _ urlString: String,
+        resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        guard let url = URL(string: urlString) else {
+            resolver(nil)
+            return
+        }
+        resolver(Helium.shared.handleURL(url)?.rawValue)
+    }
+
+    @objc
+    public func enableExternalWebCheckout(
+        _ successURL: String,
+        cancelURL: String,
+        paymentProcessors: [String]?
+    ) {
+        let processors: WebCheckoutProcessors
+        if let paymentProcessors {
+            var set: WebCheckoutProcessors = []
+            for p in paymentProcessors {
+                switch p.lowercased() {
+                case "paddle":
+                    set.insert(.paddle)
+                case "stripe":
+                    set.insert(.stripe)
+                default:
+                    print("[Helium] enableExternalWebCheckout: unknown payment processor '\(p)', ignoring")
+                }
+            }
+            processors = set
+        } else {
+            processors = .all
+        }
+        Helium.config.enableExternalWebCheckout(
+            successURL: successURL,
+            cancelURL: cancelURL,
+            paymentProcessors: processors
+        )
+    }
+
+    @objc
+    public func disableExternalWebCheckout() {
+        Helium.config.disableExternalWebCheckout()
+    }
+
+    @objc
+    public func setAllowWebCheckoutWithoutUserId(_ allow: Bool) {
+        Helium.config.allowWebCheckoutWithoutUserId = allow
+    }
+
+    @objc
+    public func hasActiveStripeEntitlement(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            let result = await Helium.entitlements.hasActiveStripeEntitlement()
+            resolver(result)
+        }
+    }
+
+    @objc
+    public func hasActivePaddleEntitlement(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            let result = await Helium.entitlements.hasActivePaddleEntitlement()
+            resolver(result)
+        }
+    }
+
+    @objc
+    public func createStripePortalSession(
+        _ returnUrl: String,
+        resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            do {
+                let url = try await Helium.shared.createStripePortalSession(returnUrl: returnUrl)
+                resolver(url.absoluteString)
+            } catch {
+                rejecter("STRIPE_PORTAL_ERROR", error.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc
+    public func resetStripeEntitlements() {
+        Helium.shared.resetStripeEntitlements()
+    }
+
+    @objc
+    public func createPaddlePortalSession(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            do {
+                let url = try await Helium.shared.createPaddlePortalSession()
+                resolver(url.absoluteString)
+            } catch {
+                rejecter("PADDLE_PORTAL_ERROR", error.localizedDescription, error)
+            }
+        }
+    }
+
+    @objc
+    public func getPaddleCustomerId(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        Task {
+            let result = await Helium.shared.getPaddleCustomerId()
+            resolver(result)
+        }
+    }
+
+    @objc
+    public func resetPaddleEntitlements() {
+        Helium.shared.resetPaddleEntitlements()
+    }
+
     private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {
         guard let input = input else { return nil }
 

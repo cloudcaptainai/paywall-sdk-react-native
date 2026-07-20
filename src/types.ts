@@ -19,6 +19,14 @@ export type HeliumDownloadStatus =
 
 export type HeliumLightDarkMode = 'light' | 'dark' | 'system';
 
+/** External web-checkout payment processors (iOS only). */
+export type WebCheckoutProcessor = 'paddle' | 'stripe';
+
+/**
+ * Which of the configured external web checkout redirect URLs the user returned through.
+ */
+export type HeliumCheckoutRedirectType = 'success' | 'cancel' | 'paymentFailure';
+
 /** A log event emitted by the native Helium SDK. */
 export interface HeliumLogEvent {
   /** Numeric log level (1=error, 2=warn, 3=info, 4=debug, 5=trace). */
@@ -242,8 +250,8 @@ export type HeliumPaywallEvent = {
   canonicalJoinTransactionId?: string;
   /** Payment processor that completed a successful purchase. Present on `purchaseSucceeded` events. */
   paymentProcessor?: HeliumPaymentProcessor;
-  /** How an existing entitlement was surfaced. Present on `purchaseRestored` events. */
-  origin?: PurchaseRestoredOrigin;
+  /** How an existing entitlement was surfaced. Present on `purchaseRestored` events (iOS). */
+  restoreOrigin?: PurchaseRestoredOrigin;
 };
 
 /** Identifies which payment processor completed a purchase. */
@@ -256,10 +264,14 @@ export type PaywallSkippedReason = 'targetingHoldout' | 'alreadyEntitled';
  * How an existing entitlement was surfaced on a `purchaseRestored` event.
  * - `restorePurchases`: user tapped the "Restore Purchases" button.
  * - `duringPurchase`: a purchase action resolved as a restoration (e.g. StoreKit returned `.restored`,
- *   or a pre-checkout entitlement check found the user already owned the product).
- * - `detected`: entitlement was passively observed (e.g. after returning from an external web checkout).
+ *   or a web pre-checkout entitlement check found the user already owned the product).
+ * - `detectedPostWebCheckout`: entitlement was passively observed after returning from an
+ *   external web checkout success redirect.
  */
-export type PurchaseRestoredOrigin = 'restorePurchases' | 'duringPurchase' | 'detected';
+export type PurchaseRestoredOrigin =
+  | 'restorePurchases'
+  | 'duringPurchase'
+  | 'detectedPostWebCheckout';
 
 export type PresentUpsellParams = {
   triggerName: string;

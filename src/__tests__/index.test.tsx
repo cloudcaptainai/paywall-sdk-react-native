@@ -32,6 +32,17 @@ jest.mock('react-native', () => {
     setTestRestoreResult: jest.fn(),
     setTestIntroOfferEligibility: jest.fn(),
     resetTesting: jest.fn(),
+    heliumHandleURL: jest.fn().mockResolvedValue('success'),
+    enableExternalWebCheckout: jest.fn(),
+    disableExternalWebCheckout: jest.fn(),
+    setAllowWebCheckoutWithoutUserId: jest.fn(),
+    hasActiveStripeEntitlement: jest.fn().mockResolvedValue(false),
+    hasActivePaddleEntitlement: jest.fn().mockResolvedValue(false),
+    createStripePortalSession: jest.fn().mockResolvedValue('https://portal'),
+    resetStripeEntitlements: jest.fn(),
+    createPaddlePortalSession: jest.fn().mockResolvedValue('https://portal'),
+    getPaddleCustomerId: jest.fn().mockResolvedValue(null),
+    resetPaddleEntitlements: jest.fn(),
   };
   return {
     NativeModules: { HeliumBridge: bridge },
@@ -69,6 +80,17 @@ describe('public API surface', () => {
     'setLightDarkModeOverride',
     'setPaywallPreviewsEnabledInDevBuilds',
     'createCustomPurchaseConfig',
+    'heliumHandleURL',
+    'enableExternalWebCheckout',
+    'disableExternalWebCheckout',
+    'setAllowWebCheckoutWithoutUserId',
+    'hasActiveStripeEntitlement',
+    'hasActivePaddleEntitlement',
+    'createStripePortalSession',
+    'resetStripeEntitlements',
+    'createPaddlePortalSession',
+    'getPaddleCustomerId',
+    'resetPaddleEntitlements',
   ] as const;
 
   it.each(expectedFunctions)('exports %s as a function', (name) => {
@@ -117,12 +139,7 @@ describe('heliumTesting', () => {
 describe('presentUpsell', () => {
   it('defaults omitted boolean args (bridge BOOLs are non-nullable)', () => {
     Helium.presentUpsell({ triggerName: 'my_trigger' });
-    expect(bridge.presentUpsell).toHaveBeenCalledWith(
-      'my_trigger',
-      undefined,
-      false,
-      false
-    );
+    expect(bridge.presentUpsell).toHaveBeenCalledWith('my_trigger', undefined, false, false);
   });
 });
 

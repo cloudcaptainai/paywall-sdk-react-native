@@ -146,4 +146,58 @@ RCT_EXTERN_METHOD(
     resetTesting
 )
 
+RCT_EXTERN_METHOD(
+    heliumHandleURL:(NSString *)urlString
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    enableExternalWebCheckout:(NSString *)successURL
+    cancelURL:(NSString *)cancelURL
+    paymentProcessors:(NSArray *)paymentProcessors
+)
+
+RCT_EXTERN_METHOD(
+    disableExternalWebCheckout
+)
+
+RCT_EXTERN_METHOD(
+    setAllowWebCheckoutWithoutUserId:(BOOL)allow
+)
+
+RCT_EXTERN_METHOD(
+    hasActiveStripeEntitlement:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    hasActivePaddleEntitlement:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    createStripePortalSession:(NSString *)returnUrl
+    resolver:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    resetStripeEntitlements
+)
+
+RCT_EXTERN_METHOD(
+    createPaddlePortalSession:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    getPaddleCustomerId:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
+    resetPaddleEntitlements
+)
+
 @end

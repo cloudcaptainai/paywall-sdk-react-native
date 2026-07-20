@@ -350,8 +350,10 @@ export class RevenueCatHeliumHandler {
    * on-device has no way to know that a new entitlement exists until its backend
    * processes the provider webhook. Without this, RevenueCat customer info would
    * remain stale until the next app launch or natural refresh. This method polls
-   * RevenueCat with progressive backoff to force a customer info refresh, stopping
-   * early if the update listener fires (~50s max).
+   * RevenueCat with progressive backoff (~50s max), stopping early once customer
+   * info actually differs from the pre-sync snapshot. Listener emissions alone
+   * aren't trusted as the stop signal — the RevenueCat SDKs may re-emit info that
+   * hasn't materially changed.
    */
   private async syncRevenueCatAfterThirdPartyPayment(): Promise<void> {
     if (this.isSyncingThirdPartyPayment) {
@@ -360,24 +362,28 @@ export class RevenueCatHeliumHandler {
     this.isSyncingThirdPartyPayment = true;
 
     let synced = false;
-    let hasInvalidatedCache = false;
 
-    const listener = (_info: CustomerInfo) => {
-      // Ignore emissions until we've invalidated the customer info cache,
-      // to ensure we react to fresh updates triggered by our polling.
-      if (!hasInvalidatedCache) return;
-      synced = true;
+    let baseline: string | undefined;
+    try {
+      baseline = entitlementSnapshot(await Purchases.getCustomerInfo());
+    } catch {
+      // Without a baseline, fall back to treating any update as fresh.
+    }
+
+    const markSyncedIfChanged = (info: CustomerInfo) => {
+      if (baseline === undefined || entitlementSnapshot(info) !== baseline) {
+        synced = true;
+      }
     };
-    Purchases.addCustomerInfoUpdateListener(listener);
+    Purchases.addCustomerInfoUpdateListener(markSyncedIfChanged);
 
     const pollPhase = async (attempts: number, intervalMs: number) => {
       for (let i = 0; i < attempts && !synced; i++) {
         await this.delay(intervalMs);
         if (synced) break;
         try {
-          hasInvalidatedCache = true;
           await Purchases.invalidateCustomerInfoCache();
-          await Purchases.getCustomerInfo();
+          markSyncedIfChanged(await Purchases.getCustomerInfo());
         } catch {
           /* catch anything unexpected like a network failure */
         }
@@ -389,7 +395,7 @@ export class RevenueCatHeliumHandler {
       await pollPhase(3, 5000); // Phase 2: every 5s for 3 attempts
       await pollPhase(2, 15000); // Phase 3: every 15s for 2 attempts
     } finally {
-      Purchases.removeCustomerInfoUpdateListener(listener);
+      Purchases.removeCustomerInfoUpdateListener(markSyncedIfChanged);
       this.isSyncingThirdPartyPayment = false;
     }
   }
@@ -397,4 +403,15 @@ export class RevenueCatHeliumHandler {
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+/**
+ * Serializes the entitlement-relevant parts of CustomerInfo so two snapshots can
+ * be compared without relying on the RevenueCat SDK's own equality or listener
+ * notification rules.
+ */
+function entitlementSnapshot(info: CustomerInfo | null | undefined): string {
+  const activeEntitlements = Object.keys(info?.entitlements?.active ?? {}).sort();
+  const activeSubscriptions = [...(info?.activeSubscriptions ?? [])].sort();
+  return JSON.stringify([activeEntitlements, activeSubscriptions]);
 }

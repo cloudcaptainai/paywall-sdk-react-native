@@ -304,6 +304,8 @@ describe('third-party payment sync (Stripe/Paddle)', () => {
     const config = createRevenueCatPurchaseConfig();
     config.onHeliumEvent!(succeededEvent('stripe'));
 
+    // Let the baseline snapshot resolve so the listener gets registered.
+    await jest.advanceTimersByTimeAsync(0);
     expect(mockPurchases.addCustomerInfoUpdateListener).toHaveBeenCalled();
     await jest.advanceTimersByTimeAsync(1000);
     expect(mockPurchases.invalidateCustomerInfoCache).toHaveBeenCalled();
@@ -314,18 +316,37 @@ describe('third-party payment sync (Stripe/Paddle)', () => {
     expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
   });
 
-  it('stops polling early once the customer info listener fires', async () => {
+  it('stops polling early once entitlements actually change', async () => {
     jest.useFakeTimers();
     const config = createRevenueCatPurchaseConfig();
     config.onHeliumEvent!(succeededEvent('paddle'));
 
+    await jest.advanceTimersByTimeAsync(0);
+    const listener = mockPurchases.addCustomerInfoUpdateListener.mock.calls[0]![0]!;
+    await jest.advanceTimersByTimeAsync(1000);
+    const callsAfterFirstPoll = mockPurchases.invalidateCustomerInfoCache.mock.calls.length;
+    listener(activeCustomerInfo('pro_monthly'));
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockPurchases.invalidateCustomerInfoCache.mock.calls.length).toBe(callsAfterFirstPoll);
+    expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
+  });
+
+  it('keeps polling when emitted customer info matches the baseline', async () => {
+    jest.useFakeTimers();
+    const config = createRevenueCatPurchaseConfig();
+    config.onHeliumEvent!(succeededEvent('stripe'));
+
+    await jest.advanceTimersByTimeAsync(0);
     const listener = mockPurchases.addCustomerInfoUpdateListener.mock.calls[0]![0]!;
     await jest.advanceTimersByTimeAsync(1000);
     const callsAfterFirstPoll = mockPurchases.invalidateCustomerInfoCache.mock.calls.length;
     listener({} as never);
 
-    await jest.advanceTimersByTimeAsync(1000);
-    expect(mockPurchases.invalidateCustomerInfoCache.mock.calls.length).toBe(callsAfterFirstPoll);
+    await jest.advanceTimersByTimeAsync(50_000);
+    expect(mockPurchases.invalidateCustomerInfoCache.mock.calls.length).toBeGreaterThan(
+      callsAfterFirstPoll
+    );
     expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
   });
 

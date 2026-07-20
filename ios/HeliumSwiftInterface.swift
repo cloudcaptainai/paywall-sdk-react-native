@@ -448,8 +448,16 @@ class HeliumBridge: RCTEventEmitter {
     }
 
     @objc
-    public func setCustomUserId(_ newUserId: String) {
+    public func setCustomUserId(_ newUserId: String?) {
         Helium.identify.userId = newUserId
+    }
+
+    @objc
+    public func getCustomUserId(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        resolver(Helium.identify.userId)
     }
 
     @objc
@@ -567,6 +575,49 @@ class HeliumBridge: RCTEventEmitter {
             heliumMode = .system
         }
         Helium.config.lightDarkModeOverride = heliumMode
+    }
+
+    @objc
+    public func setPaywallPreviewsAutoEnabledInDevBuilds(_ enabled: Bool) {
+        Helium.config.paywallPreviewsAutoEnabledInDevBuilds = enabled
+    }
+
+    // MARK: - Testing
+
+    @objc
+    public func setTestPurchaseResult(_ result: String) {
+        let status: HeliumPaywallTransactionStatus
+        switch result.lowercased() {
+        case "purchased":
+            status = .purchased
+        case "cancelled":
+            status = .cancelled
+        case "restored":
+            status = .restored
+        case "pending":
+            status = .pending
+        case "failed":
+            status = .failed(PurchaseError.purchaseFailed(errorMsg: "Stubbed test failure."))
+        default:
+            print("[Helium] setTestPurchaseResult: unknown result '\(result)', ignoring")
+            return
+        }
+        Helium.testing.purchaseHandler = { _ in status }
+    }
+
+    @objc
+    public func setTestRestoreResult(_ success: Bool) {
+        Helium.testing.restoreHandler = { success }
+    }
+
+    @objc
+    public func setTestIntroOfferEligibility(_ eligible: Bool) {
+        Helium.testing.introOfferEligibility = { _ in eligible }
+    }
+
+    @objc
+    public func resetTesting() {
+        Helium.testing.reset()
     }
 
     private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {

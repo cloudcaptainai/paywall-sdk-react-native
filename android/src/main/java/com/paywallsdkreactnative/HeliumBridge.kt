@@ -492,8 +492,17 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun setCustomUserId(newUserId: String) {
+    fun setCustomUserId(newUserId: String?) {
         Helium.identity.userId = newUserId
+    }
+
+    @ReactMethod
+    fun getCustomUserId(promise: Promise) {
+        try {
+            promise.resolve(Helium.identity.userId)
+        } catch (e: Exception) {
+            promise.reject("GET_CUSTOM_USER_ID_ERROR", "Failed to get custom user ID: ${e.message}", e)
+        }
     }
 
     @ReactMethod
@@ -631,6 +640,46 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
             }
         }
         Helium.config.lightDarkModeOverride = heliumMode
+    }
+
+    @ReactMethod
+    fun setPaywallPreviewsAutoEnabledInDevBuilds(enabled: Boolean) {
+        Helium.config.enablePaywallPreviewsInDevBuilds = enabled
+    }
+
+    // -------------------------------------------------------------------------
+    // Testing
+    // -------------------------------------------------------------------------
+
+    @ReactMethod
+    fun setTestPurchaseResult(result: String) {
+        val status: HeliumPaywallTransactionStatus = when (result.lowercase()) {
+            "purchased" -> HeliumPaywallTransactionStatus.Purchased
+            "cancelled" -> HeliumPaywallTransactionStatus.Cancelled
+            "restored" -> HeliumPaywallTransactionStatus.Purchased  // Android SDK has no Restored, map to Purchased
+            "pending" -> HeliumPaywallTransactionStatus.Pending
+            "failed" -> HeliumPaywallTransactionStatus.Failed(Exception("Stubbed test failure."))
+            else -> {
+                Log.w(TAG, "setTestPurchaseResult: unknown result '$result', ignoring")
+                return
+            }
+        }
+        Helium.testing.purchaseHandler = { _ -> status }
+    }
+
+    @ReactMethod
+    fun setTestRestoreResult(success: Boolean) {
+        Helium.testing.restoreHandler = { success }
+    }
+
+    @ReactMethod
+    fun setTestIntroOfferEligibility(eligible: Boolean) {
+        Helium.testing.introOfferEligibility = { _ -> eligible }
+    }
+
+    @ReactMethod
+    fun resetTesting() {
+        Helium.testing.reset()
     }
 
     // -------------------------------------------------------------------------

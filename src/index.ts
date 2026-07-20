@@ -11,6 +11,8 @@ export {
   handleDeepLink,
   setRevenueCatAppUserId,
   setCustomUserId,
+  clearCustomUserId,
+  getCustomUserId,
   setThirdPartyAnalyticsAnonymousId,
   hasEntitlementForPaywall,
   hasAnyActiveSubscription,
@@ -20,4 +22,6 @@ export {
   setCustomRestoreFailedStrings,
   disableRestoreFailedDialog,
   setLightDarkModeOverride,
+  setPaywallPreviewsEnabledInDevBuilds,
+  heliumTesting,
 } from './native-interface';

@@ -74,6 +74,11 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+    getCustomUserId:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
     setThirdPartyAnalyticsAnonymousId:(NSString *)anonymousId
 )
 
@@ -119,6 +124,26 @@ RCT_EXTERN_METHOD(
 
 RCT_EXTERN_METHOD(
     setLightDarkModeOverride:(NSString *)mode
+)
+
+RCT_EXTERN_METHOD(
+    setPaywallPreviewsAutoEnabledInDevBuilds:(BOOL)enabled
+)
+
+RCT_EXTERN_METHOD(
+    setTestPurchaseResult:(NSString *)result
+)
+
+RCT_EXTERN_METHOD(
+    setTestRestoreResult:(BOOL)success
+)
+
+RCT_EXTERN_METHOD(
+    setTestIntroOfferEligibility:(BOOL)eligible
+)
+
+RCT_EXTERN_METHOD(
+    resetTesting
 )
 
 @end

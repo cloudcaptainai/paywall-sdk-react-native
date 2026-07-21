@@ -432,5 +432,6 @@ export class RevenueCatHeliumHandler {
 function entitlementSnapshot(info: CustomerInfo | null | undefined): string {
   const activeEntitlements = Object.keys(info?.entitlements?.active ?? {}).sort();
   const activeSubscriptions = [...(info?.activeSubscriptions ?? [])].sort();
-  return JSON.stringify([activeEntitlements, activeSubscriptions]);
+  const purchasedProducts = [...(info?.allPurchasedProductIdentifiers ?? [])].sort();
+  return JSON.stringify([activeEntitlements, activeSubscriptions, purchasedProducts]);
 }

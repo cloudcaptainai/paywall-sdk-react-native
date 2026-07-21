@@ -149,3 +149,54 @@ describe('setPaywallPreviewsEnabledInDevBuilds', () => {
     expect(bridge.setPaywallPreviewsAutoEnabledInDevBuilds).toHaveBeenCalledWith(false);
   });
 });
+
+describe('web checkout', () => {
+  it('rejects an empty paymentProcessors array without calling the bridge', () => {
+    Helium.enableExternalWebCheckout({
+      successURL: 'app://success',
+      cancelURL: 'app://cancel',
+      paymentProcessors: [],
+    });
+    expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
+  });
+
+  it('passes through to the bridge on iOS', () => {
+    Helium.enableExternalWebCheckout({
+      successURL: 'app://success',
+      cancelURL: 'app://cancel',
+    });
+    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith(
+      'app://success',
+      'app://cancel',
+      undefined
+    );
+  });
+
+  it('returns safe defaults without calling the bridge on non-iOS platforms', async () => {
+    jest.clearAllMocks();
+    const { Platform } = require('react-native');
+    Platform.OS = 'android';
+    try {
+      await expect(Helium.hasActiveStripeEntitlement()).resolves.toBe(false);
+      await expect(Helium.hasActivePaddleEntitlement()).resolves.toBe(false);
+      await expect(Helium.getPaddleCustomerId()).resolves.toBeUndefined();
+      await expect(Helium.createStripePortalSession('app://r')).resolves.toBeUndefined();
+      await expect(Helium.heliumHandleURL('app://success')).resolves.toBeUndefined();
+      Helium.enableExternalWebCheckout({
+        successURL: 'app://success',
+        cancelURL: 'app://cancel',
+      });
+      Helium.resetPaddleEntitlements();
+
+      expect(bridge.hasActiveStripeEntitlement).not.toHaveBeenCalled();
+      expect(bridge.hasActivePaddleEntitlement).not.toHaveBeenCalled();
+      expect(bridge.getPaddleCustomerId).not.toHaveBeenCalled();
+      expect(bridge.createStripePortalSession).not.toHaveBeenCalled();
+      expect(bridge.heliumHandleURL).not.toHaveBeenCalled();
+      expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
+      expect(bridge.resetPaddleEntitlements).not.toHaveBeenCalled();
+    } finally {
+      Platform.OS = 'ios';
+    }
+  });
+});

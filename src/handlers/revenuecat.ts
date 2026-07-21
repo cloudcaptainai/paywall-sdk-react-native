@@ -362,20 +362,22 @@ export class RevenueCatHeliumHandler {
     this.isSyncingThirdPartyPayment = true;
 
     let synced = false;
-
     let baseline: string | undefined;
-    try {
-      baseline = entitlementSnapshot(await Purchases.getCustomerInfo());
-    } catch {
-      // Without a baseline, fall back to treating any update as fresh.
-    }
+    let listenerAdded = false;
 
     const markSyncedIfChanged = (info: CustomerInfo) => {
-      if (baseline === undefined || entitlementSnapshot(info) !== baseline) {
+      const snapshot = entitlementSnapshot(info);
+      if (baseline === undefined) {
+        // The initial baseline fetch failed, so treat the first observed info
+        // as the pre-purchase state. Marking it as synced instead could stop
+        // the backoff on info that is still stale.
+        baseline = snapshot;
+        return;
+      }
+      if (snapshot !== baseline) {
         synced = true;
       }
     };
-    Purchases.addCustomerInfoUpdateListener(markSyncedIfChanged);
 
     const pollPhase = async (attempts: number, intervalMs: number) => {
       for (let i = 0; i < attempts && !synced; i++) {
@@ -391,11 +393,28 @@ export class RevenueCatHeliumHandler {
     };
 
     try {
+      try {
+        baseline = entitlementSnapshot(await Purchases.getCustomerInfo());
+      } catch {
+        // Baseline fetch failed; markSyncedIfChanged adopts the first
+        // observed customer info as the baseline instead.
+      }
+
+      // Throws if RevenueCat has not been configured yet.
+      Purchases.addCustomerInfoUpdateListener(markSyncedIfChanged);
+      listenerAdded = true;
+
       await pollPhase(5, 1000); // Phase 1: every 1s for 5 attempts
       await pollPhase(3, 5000); // Phase 2: every 5s for 3 attempts
       await pollPhase(2, 15000); // Phase 3: every 15s for 2 attempts
     } finally {
-      Purchases.removeCustomerInfoUpdateListener(markSyncedIfChanged);
+      if (listenerAdded) {
+        try {
+          Purchases.removeCustomerInfoUpdateListener(markSyncedIfChanged);
+        } catch {
+          // Never let listener cleanup keep the sync flag stuck.
+        }
+      }
       this.isSyncingThirdPartyPayment = false;
     }
   }

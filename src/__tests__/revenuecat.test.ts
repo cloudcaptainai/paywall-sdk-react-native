@@ -350,6 +350,30 @@ describe('third-party payment sync (Stripe/Paddle)', () => {
     expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
   });
 
+  it('keeps polling on stale info when the baseline fetch fails', async () => {
+    jest.useFakeTimers();
+    mockPurchases.getCustomerInfo
+      .mockRejectedValueOnce(new Error('network down')) // baseline fetch
+      .mockResolvedValueOnce({} as never) // first poll: still stale
+      .mockResolvedValue(activeCustomerInfo('pro_monthly')); // second poll: fresh
+    const config = createRevenueCatPurchaseConfig();
+    config.onHeliumEvent!(succeededEvent('stripe'));
+
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockPurchases.addCustomerInfoUpdateListener).toHaveBeenCalled();
+
+    // First poll adopts the stale info as the baseline and must keep polling.
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockPurchases.removeCustomerInfoUpdateListener).not.toHaveBeenCalled();
+
+    // Second poll sees changed entitlements and stops.
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
+    const pollCalls = mockPurchases.invalidateCustomerInfoCache.mock.calls.length;
+    await jest.advanceTimersByTimeAsync(50_000);
+    expect(mockPurchases.invalidateCustomerInfoCache.mock.calls.length).toBe(pollCalls);
+  });
+
   it('does not sync when the processor sync is disabled', async () => {
     jest.useFakeTimers();
     const config = createRevenueCatPurchaseConfig({

@@ -17,6 +17,10 @@ jest.mock('react-native-purchases', () => ({
     purchaseStoreProduct: jest.fn(),
     purchaseSubscriptionOption: jest.fn(),
     restorePurchases: jest.fn(),
+    addCustomerInfoUpdateListener: jest.fn(),
+    removeCustomerInfoUpdateListener: jest.fn(),
+    invalidateCustomerInfoCache: jest.fn(),
+    getCustomerInfo: jest.fn(),
   },
   PURCHASES_ERROR_CODE: {
     PURCHASE_CANCELLED_ERROR: '1',
@@ -74,7 +78,7 @@ describe('createRevenueCatPurchaseConfig', () => {
     expect(typeof config.restorePurchases).toBe('function');
     expect(config._delegateType).toBe('h_revenuecat');
     expect(config.makePurchase).toBeUndefined();
-    expect(config.onHeliumEvent).toBeUndefined();
+    expect(typeof config.onHeliumEvent).toBe('function');
   });
 
   it('configures RevenueCat with the provided api key when not already configured', async () => {
@@ -283,5 +287,113 @@ describe('restorePurchases', () => {
     finishConfiguredCheck(false);
     await expect(restorePromise).resolves.toBe(true);
     expect(mockPurchases.configure).toHaveBeenCalledWith({ apiKey: 'rc-key' });
+  });
+});
+
+describe('third-party payment sync (Stripe/Paddle)', () => {
+  const succeededEvent = (paymentProcessor?: string) =>
+    ({ type: 'purchaseSucceeded', paymentProcessor }) as never;
+
+  it('exposes onHeliumEvent on the purchase config', () => {
+    const config = createRevenueCatPurchaseConfig();
+    expect(typeof config.onHeliumEvent).toBe('function');
+  });
+
+  it('polls RevenueCat after a Stripe web purchase', async () => {
+    jest.useFakeTimers();
+    const config = createRevenueCatPurchaseConfig();
+    config.onHeliumEvent!(succeededEvent('stripe'));
+
+    // Let the baseline snapshot resolve so the listener gets registered.
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockPurchases.addCustomerInfoUpdateListener).toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockPurchases.invalidateCustomerInfoCache).toHaveBeenCalled();
+    expect(mockPurchases.getCustomerInfo).toHaveBeenCalled();
+
+    // Run out the remaining poll phases (~50s total) and confirm cleanup.
+    await jest.advanceTimersByTimeAsync(50_000);
+    expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
+  });
+
+  it('stops polling early once entitlements actually change', async () => {
+    jest.useFakeTimers();
+    const config = createRevenueCatPurchaseConfig();
+    config.onHeliumEvent!(succeededEvent('paddle'));
+
+    await jest.advanceTimersByTimeAsync(0);
+    const listener = mockPurchases.addCustomerInfoUpdateListener.mock.calls[0]![0]!;
+    await jest.advanceTimersByTimeAsync(1000);
+    const callsAfterFirstPoll = mockPurchases.invalidateCustomerInfoCache.mock.calls.length;
+    listener(activeCustomerInfo('pro_monthly'));
+
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockPurchases.invalidateCustomerInfoCache.mock.calls.length).toBe(callsAfterFirstPoll);
+    expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
+  });
+
+  it('keeps polling when emitted customer info matches the baseline', async () => {
+    jest.useFakeTimers();
+    const config = createRevenueCatPurchaseConfig();
+    config.onHeliumEvent!(succeededEvent('stripe'));
+
+    await jest.advanceTimersByTimeAsync(0);
+    const listener = mockPurchases.addCustomerInfoUpdateListener.mock.calls[0]![0]!;
+    await jest.advanceTimersByTimeAsync(1000);
+    const callsAfterFirstPoll = mockPurchases.invalidateCustomerInfoCache.mock.calls.length;
+    listener({} as never);
+
+    await jest.advanceTimersByTimeAsync(50_000);
+    expect(mockPurchases.invalidateCustomerInfoCache.mock.calls.length).toBeGreaterThan(
+      callsAfterFirstPoll
+    );
+    expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
+  });
+
+  it('keeps polling on stale info when the baseline fetch fails', async () => {
+    jest.useFakeTimers();
+    mockPurchases.getCustomerInfo
+      .mockRejectedValueOnce(new Error('network down')) // baseline fetch
+      .mockResolvedValueOnce({} as never) // first poll: still stale
+      .mockResolvedValue(activeCustomerInfo('pro_monthly')); // second poll: fresh
+    const config = createRevenueCatPurchaseConfig();
+    config.onHeliumEvent!(succeededEvent('stripe'));
+
+    await jest.advanceTimersByTimeAsync(0);
+    expect(mockPurchases.addCustomerInfoUpdateListener).toHaveBeenCalled();
+
+    // First poll adopts the stale info as the baseline and must keep polling.
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockPurchases.removeCustomerInfoUpdateListener).not.toHaveBeenCalled();
+
+    // Second poll sees changed entitlements and stops.
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(mockPurchases.removeCustomerInfoUpdateListener).toHaveBeenCalled();
+    const pollCalls = mockPurchases.invalidateCustomerInfoCache.mock.calls.length;
+    await jest.advanceTimersByTimeAsync(50_000);
+    expect(mockPurchases.invalidateCustomerInfoCache.mock.calls.length).toBe(pollCalls);
+  });
+
+  it('does not sync when the processor sync is disabled', async () => {
+    jest.useFakeTimers();
+    const config = createRevenueCatPurchaseConfig({
+      disableStripePurchaseSync: true,
+    });
+    config.onHeliumEvent!(succeededEvent('stripe'));
+
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(mockPurchases.addCustomerInfoUpdateListener).not.toHaveBeenCalled();
+    expect(mockPurchases.invalidateCustomerInfoCache).not.toHaveBeenCalled();
+  });
+
+  it('does not sync for app store purchases or non-purchase events', async () => {
+    jest.useFakeTimers();
+    const config = createRevenueCatPurchaseConfig();
+    config.onHeliumEvent!(succeededEvent('appStore'));
+    config.onHeliumEvent!(succeededEvent(undefined));
+    config.onHeliumEvent!({ type: 'paywallOpen' } as never);
+
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(mockPurchases.addCustomerInfoUpdateListener).not.toHaveBeenCalled();
   });
 });

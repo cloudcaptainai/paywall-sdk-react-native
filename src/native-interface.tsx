@@ -11,7 +11,9 @@ import type {
   PaywallEventHandlers,
   HeliumPaywallEvent,
   HeliumTransactionStatus,
+  HeliumCheckoutRedirectType,
   ResetHeliumOptions,
+  WebCheckoutProcessor,
 } from './types';
 import type { ExperimentInfo } from './HeliumExperimentInfo.types';
 
@@ -620,6 +622,249 @@ export const heliumTesting = {
       console.error('[Helium] heliumTesting.reset error', e);
     }
   },
+};
+
+/**
+ * Forward an incoming URL (deep link / universal link) to Helium so the SDK
+ * can react to external web checkout redirects.
+ *
+ * This is not required, but encouraged for smoother post-purchase experience.
+ *
+ * Resolves to which configured redirect URL the user came back through, or `undefined`
+ * if the URL was not recognized as a Helium web checkout redirect (including on Android,
+ * or when `url` is null).
+ */
+export const heliumHandleURL = async (
+  url: string | null
+): Promise<HeliumCheckoutRedirectType | undefined> => {
+  if (Platform.OS !== 'ios' || !url) {
+    return undefined;
+  }
+  try {
+    const result = await HeliumBridge.heliumHandleURL(url);
+    return (result ?? undefined) as HeliumCheckoutRedirectType | undefined;
+  } catch (e) {
+    console.error('[Helium] heliumHandleURL error', e);
+    return undefined;
+  }
+};
+
+/**
+ * iOS only. Enables External Web Checkout Flow for any Paddle or Stripe products in your
+ * paywalls. If not enabled, paywalls with Paddle/Stripe products will not show. Your
+ * fallback paywall/s, if provided, will show instead.
+ *
+ * You must provide redirect URLs so Helium knows where to send the user after checkout
+ * completes or is cancelled.
+ *
+ * @param successURL The URL to redirect to after a successful payment.
+ * @param cancelURL The URL the provider redirects to when the user cancels checkout.
+ * @param paymentProcessors Which payment processors to enable. Defaults to both Paddle and
+ *   Stripe. Pass `['paddle']` or `['stripe']` if your app only uses one to skip the unused
+ *   processor's entitlement network calls.
+ */
+export const enableExternalWebCheckout = ({
+  successURL,
+  cancelURL,
+  paymentProcessors,
+}: {
+  successURL: string;
+  cancelURL: string;
+  paymentProcessors?: WebCheckoutProcessor[];
+}): void => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] enableExternalWebCheckout is only available on iOS');
+    return;
+  }
+  if (paymentProcessors && paymentProcessors.length === 0) {
+    console.error(
+      "[Helium] enableExternalWebCheckout: paymentProcessors must not be empty. Omit it to enable all, or pass ['paddle'] or ['stripe']."
+    );
+    return;
+  }
+  try {
+    HeliumBridge.enableExternalWebCheckout(successURL, cancelURL, paymentProcessors);
+  } catch (e) {
+    console.error('[Helium] enableExternalWebCheckout error', e);
+  }
+};
+
+/**
+ * iOS only. Disables External Web Checkout Flow. Paywalls with Paddle or Stripe products
+ * will not show. Your fallback paywall/s, if provided, will show instead.
+ *
+ * NOTE - if you have existing Paddle/Stripe customers, Helium will attempt to continue
+ * respecting their entitlements but is not guaranteed to do so.
+ */
+export const disableExternalWebCheckout = (): void => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] disableExternalWebCheckout is only available on iOS');
+    return;
+  }
+  try {
+    HeliumBridge.disableExternalWebCheckout();
+  } catch (e) {
+    console.error('[Helium] disableExternalWebCheckout error', e);
+  }
+};
+
+/**
+ * iOS only. Allows Web Checkout paywalls (Paddle/Stripe) to show even when no custom user
+ * ID has been set via `setCustomUserId`.
+ *
+ * By default, paywalls with Paddle or Stripe products will not show if user ID is not set.
+ * Your fallback paywall/s, if provided, will show instead.
+ * Set this to `true` if your app supports purchase-before-signup flows. Once
+ * `setCustomUserId` is called later, Helium will automatically link the Paddle/Stripe
+ * customer to that user ID.
+ *
+ * Warning: Use with caution. If the user purchases via web checkout and your app never sets
+ * a `customUserId` (or uninstalls the app before doing so), the purchase may be
+ * unrecoverable for that user. Only enable this if your app has a clear path for the user
+ * to set a custom user ID post-purchase.
+ *
+ * Defaults to `false`.
+ */
+export const setAllowWebCheckoutWithoutUserId = (allow: boolean): void => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] setAllowWebCheckoutWithoutUserId is only available on iOS');
+    return;
+  }
+  try {
+    HeliumBridge.setAllowWebCheckoutWithoutUserId(allow);
+  } catch (e) {
+    console.error('[Helium] setAllowWebCheckoutWithoutUserId error', e);
+  }
+};
+
+/**
+ * iOS only. Returns `true` if the user has any active Stripe entitlement.
+ */
+export const hasActiveStripeEntitlement = async (): Promise<boolean> => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] hasActiveStripeEntitlement is only available on iOS');
+    return false;
+  }
+  try {
+    return await HeliumBridge.hasActiveStripeEntitlement();
+  } catch (e) {
+    console.error('[Helium] hasActiveStripeEntitlement error', e);
+    return false;
+  }
+};
+
+/**
+ * iOS only. Returns `true` if the user has any active Paddle entitlement.
+ */
+export const hasActivePaddleEntitlement = async (): Promise<boolean> => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] hasActivePaddleEntitlement is only available on iOS');
+    return false;
+  }
+  try {
+    return await HeliumBridge.hasActivePaddleEntitlement();
+  } catch (e) {
+    console.error('[Helium] hasActivePaddleEntitlement error', e);
+    return false;
+  }
+};
+
+/**
+ * iOS only. Creates a Stripe Customer Portal session and returns the portal URL.
+ * The host app can open this URL in a browser or in-app webview to let the user
+ * manage their subscriptions, payment methods, and invoices.
+ *
+ * @param returnUrl The URL Stripe redirects to after the user finishes in the portal.
+ * @returns The portal session URL, or `undefined` if the session could not be created.
+ */
+export const createStripePortalSession = async (returnUrl: string): Promise<string | undefined> => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] createStripePortalSession is only available on iOS');
+    return undefined;
+  }
+  try {
+    return await HeliumBridge.createStripePortalSession(returnUrl);
+  } catch (e) {
+    console.error('[Helium] createStripePortalSession error', e);
+    return undefined;
+  }
+};
+
+/**
+ * iOS only. Resets Stripe entitlements and clears the user ID.
+ * If your app can support multiple Stripe users on the same device, call this to
+ * effectively "log out" a Stripe user.
+ */
+export const resetStripeEntitlements = (): void => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] resetStripeEntitlements is only available on iOS');
+    return;
+  }
+  try {
+    HeliumBridge.resetStripeEntitlements();
+  } catch (e) {
+    console.error('[Helium] resetStripeEntitlements error', e);
+  }
+};
+
+/**
+ * iOS only. Creates a Paddle Customer Portal session for the current user and returns the
+ * portal URL. The host app can open this URL in a browser or in-app webview to let the
+ * user manage their subscriptions.
+ *
+ * @returns The portal session URL, or `undefined` if the session could not be created.
+ * @deprecated Use getPaddleCustomerId() and pass the ID to your server to generate a
+ * Paddle customer portal session instead.
+ */
+export const createPaddlePortalSession = async (): Promise<string | undefined> => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] createPaddlePortalSession is only available on iOS');
+    return undefined;
+  }
+  try {
+    return await HeliumBridge.createPaddlePortalSession();
+  } catch (e) {
+    console.error('[Helium] createPaddlePortalSession error', e);
+    return undefined;
+  }
+};
+
+/**
+ * iOS only. Returns the Paddle customer ID for the current user, if one exists.
+ *
+ * Pass this ID to your server to generate a Paddle customer portal session,
+ * allowing the user to manage their subscriptions.
+ *
+ * @returns The Paddle customer ID, or `undefined` if none has been assigned.
+ */
+export const getPaddleCustomerId = async (): Promise<string | undefined> => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] getPaddleCustomerId is only available on iOS');
+    return undefined;
+  }
+  try {
+    return (await HeliumBridge.getPaddleCustomerId()) ?? undefined;
+  } catch (e) {
+    console.error('[Helium] getPaddleCustomerId error', e);
+    return undefined;
+  }
+};
+
+/**
+ * iOS only. Resets Paddle entitlements and clears the user ID.
+ * If your app can support multiple Paddle users on the same device, call this to
+ * effectively "log out" a Paddle user.
+ */
+export const resetPaddleEntitlements = (): void => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] resetPaddleEntitlements is only available on iOS');
+    return;
+  }
+  try {
+    HeliumBridge.resetPaddleEntitlements();
+  } catch (e) {
+    console.error('[Helium] resetPaddleEntitlements error', e);
+  }
 };
 
 /**

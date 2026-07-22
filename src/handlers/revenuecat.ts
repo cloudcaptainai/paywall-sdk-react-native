@@ -7,7 +7,7 @@ import type {
 } from 'react-native-purchases';
 import Purchases, { PRODUCT_CATEGORY, PURCHASES_ERROR_CODE } from 'react-native-purchases';
 import { Platform } from 'react-native';
-import type { HeliumPurchaseConfig, HeliumPurchaseResult } from '../types';
+import type { HeliumPaywallEvent, HeliumPurchaseConfig, HeliumPurchaseResult } from '../types';
 import { setRevenueCatAppUserId } from '../native-interface';
 
 export interface RevenueCatConfig {
@@ -17,6 +17,10 @@ export interface RevenueCatConfig {
   apiKeyIOS?: string;
   /** Android-specific RevenueCat API key. Takes precedence over `apiKey` on Android. Only needed if RevenueCat is not already configured externally. */
   apiKeyAndroid?: string;
+  /** Set to true to disable automatic RevenueCat entitlement syncing after Stripe purchases. */
+  disableStripePurchaseSync?: boolean;
+  /** Set to true to disable automatic RevenueCat entitlement syncing after Paddle purchases. */
+  disablePaddlePurchaseSync?: boolean;
 }
 
 export function createRevenueCatPurchaseConfig(config?: RevenueCatConfig): HeliumPurchaseConfig {
@@ -25,6 +29,7 @@ export function createRevenueCatPurchaseConfig(config?: RevenueCatConfig): Heliu
     makePurchaseIOS: rcHandler.makePurchaseIOS.bind(rcHandler),
     makePurchaseAndroid: rcHandler.makePurchaseAndroid.bind(rcHandler),
     restorePurchases: rcHandler.restorePurchases.bind(rcHandler),
+    onHeliumEvent: rcHandler.onHeliumEvent.bind(rcHandler),
     _delegateType: 'h_revenuecat',
   };
 }
@@ -40,9 +45,15 @@ const RETRYABLE_RC_CODES = new Set([
 type PurchaseAttemptResult = HeliumPurchaseResult & { shouldRetry?: boolean };
 
 export class RevenueCatHeliumHandler {
+  private stripePurchaseSyncDisabled: boolean = false;
+  private paddlePurchaseSyncDisabled: boolean = false;
+  private isSyncingThirdPartyPayment: boolean = false;
   private setUpPromise: Promise<void>;
 
   constructor(config?: RevenueCatConfig) {
+    this.stripePurchaseSyncDisabled = config?.disableStripePurchaseSync ?? false;
+    this.paddlePurchaseSyncDisabled = config?.disablePaddlePurchaseSync ?? false;
+
     // Determine which API key to use based on platform
     let effectiveApiKey: string | undefined;
     if (Platform.OS === 'ios' && config?.apiKeyIOS) {
@@ -315,7 +326,112 @@ export class RevenueCatHeliumHandler {
     return result.status === 'failed' && !!result.shouldRetry;
   }
 
+  onHeliumEvent(event: HeliumPaywallEvent): void {
+    if (event.type === 'purchaseSucceeded' && this.shouldSyncAfterThirdPartyPayment(event)) {
+      this.syncRevenueCatAfterThirdPartyPayment().catch(() => {
+        // Background sync must never propagate into the host app.
+      });
+    }
+  }
+
+  private shouldSyncAfterThirdPartyPayment(event: HeliumPaywallEvent): boolean {
+    switch (event.paymentProcessor) {
+      case 'stripe':
+        return !this.stripePurchaseSyncDisabled;
+      case 'paddle':
+        return !this.paddlePurchaseSyncDisabled;
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * After a third-party payment (Stripe or Paddle) completes, the RevenueCat SDK
+   * on-device has no way to know that a new entitlement exists until its backend
+   * processes the provider webhook. Without this, RevenueCat customer info would
+   * remain stale until the next app launch or natural refresh. This method polls
+   * RevenueCat with progressive backoff (~50s max), stopping early once customer
+   * info actually differs from the pre-sync snapshot. Listener emissions alone
+   * aren't trusted as the stop signal — the RevenueCat SDKs may re-emit info that
+   * hasn't materially changed.
+   */
+  private async syncRevenueCatAfterThirdPartyPayment(): Promise<void> {
+    if (this.isSyncingThirdPartyPayment) {
+      return;
+    }
+    this.isSyncingThirdPartyPayment = true;
+
+    let synced = false;
+    let baseline: string | undefined;
+    let listenerAdded = false;
+
+    const markSyncedIfChanged = (info: CustomerInfo) => {
+      const snapshot = entitlementSnapshot(info);
+      if (baseline === undefined) {
+        // The initial baseline fetch failed, so treat the first observed info
+        // as the pre-purchase state. Marking it as synced instead could stop
+        // the backoff on info that is still stale.
+        baseline = snapshot;
+        return;
+      }
+      if (snapshot !== baseline) {
+        synced = true;
+      }
+    };
+
+    const pollPhase = async (attempts: number, intervalMs: number) => {
+      for (let i = 0; i < attempts && !synced; i++) {
+        await this.delay(intervalMs);
+        if (synced) break;
+        try {
+          await Purchases.invalidateCustomerInfoCache();
+          markSyncedIfChanged(await Purchases.getCustomerInfo());
+        } catch {
+          /* catch anything unexpected like a network failure */
+        }
+      }
+    };
+
+    try {
+      try {
+        baseline = entitlementSnapshot(await Purchases.getCustomerInfo());
+      } catch {
+        // Baseline fetch failed; markSyncedIfChanged adopts the first
+        // observed customer info as the baseline instead.
+      }
+
+      // Throws if RevenueCat has not been configured yet.
+      Purchases.addCustomerInfoUpdateListener(markSyncedIfChanged);
+      listenerAdded = true;
+
+      await pollPhase(5, 1000); // Phase 1: every 1s for 5 attempts
+      await pollPhase(3, 5000); // Phase 2: every 5s for 3 attempts
+      await pollPhase(2, 15000); // Phase 3: every 15s for 2 attempts
+    } finally {
+      if (listenerAdded) {
+        try {
+          Purchases.removeCustomerInfoUpdateListener(markSyncedIfChanged);
+        } catch {
+          // Never let listener cleanup keep the sync flag stuck.
+        }
+      }
+      this.isSyncingThirdPartyPayment = false;
+    }
+  }
+
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+/**
+ * Serializes the entitlement-relevant parts of CustomerInfo so two snapshots can
+ * be compared without relying on the RevenueCat SDK's own equality or listener
+ * notification rules.
+ */
+function entitlementSnapshot(info: CustomerInfo | null | undefined): string {
+  const activeEntitlements = Object.keys(info?.entitlements?.active ?? {}).sort();
+  const activeSubscriptions = [...(info?.activeSubscriptions ?? [])].sort();
+  const purchasedProducts = [...(info?.allPurchasedProductIdentifiers ?? [])].sort();
+  return JSON.stringify([activeEntitlements, activeSubscriptions, purchasedProducts]);
 }

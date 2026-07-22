@@ -5,6 +5,7 @@ module.exports = () => ({
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
+    scheme: 'heliumexample',
     userInterfaceStyle: 'light',
     newArchEnabled: false,
     splash: {

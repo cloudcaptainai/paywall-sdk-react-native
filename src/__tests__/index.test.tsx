@@ -32,6 +32,17 @@ jest.mock('react-native', () => {
     setTestRestoreResult: jest.fn(),
     setTestIntroOfferEligibility: jest.fn(),
     resetTesting: jest.fn(),
+    heliumHandleURL: jest.fn().mockResolvedValue('success'),
+    enableExternalWebCheckout: jest.fn(),
+    disableExternalWebCheckout: jest.fn(),
+    setAllowWebCheckoutWithoutUserId: jest.fn(),
+    hasActiveStripeEntitlement: jest.fn().mockResolvedValue(false),
+    hasActivePaddleEntitlement: jest.fn().mockResolvedValue(false),
+    createStripePortalSession: jest.fn().mockResolvedValue('https://portal'),
+    resetStripeEntitlements: jest.fn(),
+    createPaddlePortalSession: jest.fn().mockResolvedValue('https://portal'),
+    getPaddleCustomerId: jest.fn().mockResolvedValue(null),
+    resetPaddleEntitlements: jest.fn(),
   };
   return {
     NativeModules: { HeliumBridge: bridge },
@@ -69,6 +80,17 @@ describe('public API surface', () => {
     'setLightDarkModeOverride',
     'setPaywallPreviewsEnabledInDevBuilds',
     'createCustomPurchaseConfig',
+    'heliumHandleURL',
+    'enableExternalWebCheckout',
+    'disableExternalWebCheckout',
+    'setAllowWebCheckoutWithoutUserId',
+    'hasActiveStripeEntitlement',
+    'hasActivePaddleEntitlement',
+    'createStripePortalSession',
+    'resetStripeEntitlements',
+    'createPaddlePortalSession',
+    'getPaddleCustomerId',
+    'resetPaddleEntitlements',
   ] as const;
 
   it.each(expectedFunctions)('exports %s as a function', (name) => {
@@ -117,12 +139,7 @@ describe('heliumTesting', () => {
 describe('presentUpsell', () => {
   it('defaults omitted boolean args (bridge BOOLs are non-nullable)', () => {
     Helium.presentUpsell({ triggerName: 'my_trigger' });
-    expect(bridge.presentUpsell).toHaveBeenCalledWith(
-      'my_trigger',
-      undefined,
-      false,
-      false
-    );
+    expect(bridge.presentUpsell).toHaveBeenCalledWith('my_trigger', undefined, false, false);
   });
 });
 
@@ -130,5 +147,56 @@ describe('setPaywallPreviewsEnabledInDevBuilds', () => {
   it('passes through to the bridge', () => {
     Helium.setPaywallPreviewsEnabledInDevBuilds(false);
     expect(bridge.setPaywallPreviewsAutoEnabledInDevBuilds).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('web checkout', () => {
+  it('rejects an empty paymentProcessors array without calling the bridge', () => {
+    Helium.enableExternalWebCheckout({
+      successURL: 'app://success',
+      cancelURL: 'app://cancel',
+      paymentProcessors: [],
+    });
+    expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
+  });
+
+  it('passes through to the bridge on iOS', () => {
+    Helium.enableExternalWebCheckout({
+      successURL: 'app://success',
+      cancelURL: 'app://cancel',
+    });
+    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith(
+      'app://success',
+      'app://cancel',
+      undefined
+    );
+  });
+
+  it('returns safe defaults without calling the bridge on non-iOS platforms', async () => {
+    jest.clearAllMocks();
+    const { Platform } = require('react-native');
+    Platform.OS = 'android';
+    try {
+      await expect(Helium.hasActiveStripeEntitlement()).resolves.toBe(false);
+      await expect(Helium.hasActivePaddleEntitlement()).resolves.toBe(false);
+      await expect(Helium.getPaddleCustomerId()).resolves.toBeUndefined();
+      await expect(Helium.createStripePortalSession('app://r')).resolves.toBeUndefined();
+      await expect(Helium.heliumHandleURL('app://success')).resolves.toBeUndefined();
+      Helium.enableExternalWebCheckout({
+        successURL: 'app://success',
+        cancelURL: 'app://cancel',
+      });
+      Helium.resetPaddleEntitlements();
+
+      expect(bridge.hasActiveStripeEntitlement).not.toHaveBeenCalled();
+      expect(bridge.hasActivePaddleEntitlement).not.toHaveBeenCalled();
+      expect(bridge.getPaddleCustomerId).not.toHaveBeenCalled();
+      expect(bridge.createStripePortalSession).not.toHaveBeenCalled();
+      expect(bridge.heliumHandleURL).not.toHaveBeenCalled();
+      expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
+      expect(bridge.resetPaddleEntitlements).not.toHaveBeenCalled();
+    } finally {
+      Platform.OS = 'ios';
+    }
   });
 });

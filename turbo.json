@@ -13,7 +13,12 @@
         "examples/expo-51/android",
         "!examples/expo-51/android/.gradle",
         "!examples/expo-51/android/build",
-        "!examples/expo-51/android/app/build"
+        "!examples/expo-51/android/app/build",
+        "examples/bare-rn/package.json",
+        "examples/bare-rn/android",
+        "!examples/bare-rn/android/.gradle",
+        "!examples/bare-rn/android/build",
+        "!examples/bare-rn/android/app/build"
       ],
       "outputs": []
     },
@@ -28,7 +33,11 @@
         "examples/expo-51/package.json",
         "examples/expo-51/ios",
         "!examples/expo-51/ios/build",
-        "!examples/expo-51/ios/Pods"
+        "!examples/expo-51/ios/Pods",
+        "examples/bare-rn/package.json",
+        "examples/bare-rn/ios",
+        "!examples/bare-rn/ios/build",
+        "!examples/bare-rn/ios/Pods"
       ],
       "outputs": []
     }

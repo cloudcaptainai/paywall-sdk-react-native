@@ -14,10 +14,14 @@ Fill in your Helium credentials: either edit `helium.config.ts`, or (preferred) 
 ## iOS
 
 ```bash
-cd ios && LANG=en_US.UTF-8 pod install && cd ..
+bundle install
+cd ios && LANG=en_US.UTF-8 bundle exec pod install && cd ..
 npx react-native run-ios                     # simulator
 npx react-native run-ios --list-devices     # pick a physical device
 ```
+
+(`bundle exec` uses the Gemfile-pinned CocoaPods; plain `pod install` also works
+if your system CocoaPods is recent.)
 
 Device builds need a signing team: open `ios/HeliumBareExample.xcworkspace` in Xcode and
 set one under Signing & Capabilities, or pass `DEVELOPMENT_TEAM` to xcodebuild.

@@ -114,12 +114,17 @@ export default function App() {
   };
 
   const handleRefreshSdkState = async () => {
-    const status = await getDownloadStatus();
-    const info = await getPaywallInfo(trigger);
-    setSdkState(
-      `download: ${status}\n` +
-        `paywall("${trigger}"): ${info ? `${info.paywallTemplateName}, shouldShow: ${info.shouldShow}` : '(none)'}`
-    );
+    try {
+      const status = await getDownloadStatus();
+      const info = await getPaywallInfo(trigger);
+      setSdkState(
+        `download: ${status}\n` +
+          `paywall("${trigger}"): ${info ? `${info.paywallTemplateName}, shouldShow: ${info.shouldShow}` : '(none)'}`
+      );
+    } catch (e) {
+      console.log('[Example] refresh SDK state error', e);
+      setSdkState('(error — see logs)');
+    }
   };
 
   const handleSetCustomUserId = () => {
@@ -142,24 +147,29 @@ export default function App() {
   };
 
   const handleShowEntitlements = async () => {
-    const [anyActiveSub, anyEntitlement, paywallEntitlement] = await Promise.all([
-      hasAnyActiveSubscription(),
-      hasAnyEntitlement(),
-      hasEntitlementForPaywall(trigger),
-    ]);
-    let message =
-      `hasAnyActiveSubscription: ${anyActiveSub}\n` +
-      `hasAnyEntitlement: ${anyEntitlement}\n` +
-      `hasEntitlementForPaywall("${trigger}"): ${paywallEntitlement}`;
-    if (isIOS) {
-      const [stripe, paddle] = await Promise.all([
-        hasActiveStripeEntitlement(),
-        hasActivePaddleEntitlement(),
+    try {
+      const [anyActiveSub, anyEntitlement, paywallEntitlement] = await Promise.all([
+        hasAnyActiveSubscription(),
+        hasAnyEntitlement(),
+        hasEntitlementForPaywall(trigger),
       ]);
-      message += `\nhasActiveStripeEntitlement: ${stripe}\nhasActivePaddleEntitlement: ${paddle}`;
+      let message =
+        `hasAnyActiveSubscription: ${anyActiveSub}\n` +
+        `hasAnyEntitlement: ${anyEntitlement}\n` +
+        `hasEntitlementForPaywall("${trigger}"): ${paywallEntitlement}`;
+      if (isIOS) {
+        const [stripe, paddle] = await Promise.all([
+          hasActiveStripeEntitlement(),
+          hasActivePaddleEntitlement(),
+        ]);
+        message += `\nhasActiveStripeEntitlement: ${stripe}\nhasActivePaddleEntitlement: ${paddle}`;
+      }
+      console.log('[Example] entitlements →\n' + message);
+      Alert.alert('Entitlements', message);
+    } catch (e) {
+      console.log('[Example] entitlements error', e);
+      Alert.alert('Entitlements', 'Failed to read entitlements — see logs');
     }
-    console.log('[Example] entitlements →\n' + message);
-    Alert.alert('Entitlements', message);
   };
 
   const handleStubPurchase = (result: 'purchased' | 'failed' | null) => {

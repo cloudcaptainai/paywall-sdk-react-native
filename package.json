@@ -48,7 +48,7 @@
     "test": "jest",
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
+    "clean": "del-cli android/build examples/expo-51/android/build examples/expo-51/android/app/build examples/expo-51/ios/build examples/bare-rn/android/build examples/bare-rn/android/app/build examples/bare-rn/ios/build lib",
     "prepare": "bob build"
   },
   "keywords": [
@@ -107,7 +107,7 @@
   "jest": {
     "preset": "react-native",
     "modulePathIgnorePatterns": [
-      "<rootDir>/example/node_modules",
+      "<rootDir>/examples",
       "<rootDir>/lib/"
     ]
   },

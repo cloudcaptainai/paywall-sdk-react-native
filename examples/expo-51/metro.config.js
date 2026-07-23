@@ -2,7 +2,7 @@ const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
 const config = getDefaultConfig(__dirname);
-const workspaceRoot = path.resolve(__dirname, '..');
+const workspaceRoot = path.resolve(__dirname, '../..');
 
 // Watch the SDK source for live reloads during development.
 config.watchFolders = [workspaceRoot];

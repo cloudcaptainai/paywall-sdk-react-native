@@ -233,6 +233,7 @@ export default function App() {
 
   const handleReset = async () => {
     await resetHelium();
+    heliumTesting.reset();
     setCustomUserIdState(null);
     setPurchaseStub(null);
     eventLog.current = [];

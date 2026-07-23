@@ -4,6 +4,10 @@ const path = require('path');
 const workspaceRoot = path.resolve(__dirname, '../..');
 const defaultConfig = getDefaultConfig(__dirname);
 
+// Regex-escape resolved paths before building blockList entries so
+// metacharacters in directory names (and Windows separators) match literally.
+const escapeForRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * Metro configuration
  * https://reactnative.dev/docs/metro
@@ -19,9 +23,14 @@ const config = {
     // Metro's lookup so this example's versions are the only ones in play.
     blockList: [
       ...Array.from(defaultConfig.resolver.blockList ?? []),
-      new RegExp(path.resolve(workspaceRoot, 'node_modules', 'react') + '/.*'),
       new RegExp(
-        path.resolve(workspaceRoot, 'node_modules', 'react-native') + '/.*',
+        escapeForRegExp(path.resolve(workspaceRoot, 'node_modules', 'react')) +
+          '/.*',
+      ),
+      new RegExp(
+        escapeForRegExp(
+          path.resolve(workspaceRoot, 'node_modules', 'react-native'),
+        ) + '/.*',
       ),
     ],
     nodeModulesPaths: [path.resolve(__dirname, 'node_modules')],

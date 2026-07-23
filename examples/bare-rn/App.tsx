@@ -43,12 +43,13 @@ import defaultConfig from './helium.config';
 
 // `helium.config.local.ts` is gitignored and takes precedence — see helium.config.ts.
 // Metro resolves the missing optional module to an empty shim rather than
-// throwing, so validate the shape instead of relying on the catch.
+// throwing, so validate the shape instead of relying on the catch. Merge so a
+// local file that only sets some fields keeps the defaults for the rest.
 let heliumConfig = defaultConfig;
 try {
   const local = require('./helium.config.local').default;
   if (local?.apiKey) {
-    heliumConfig = local;
+    heliumConfig = {...defaultConfig, ...local};
   }
 } catch {}
 

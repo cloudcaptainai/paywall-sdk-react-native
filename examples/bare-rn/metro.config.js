@@ -25,6 +25,16 @@ const config = {
       ),
     ],
     nodeModulesPaths: [path.resolve(__dirname, 'node_modules')],
+    // Prefer the SDK's TypeScript source (package.json "source" field) so edits
+    // under ../../src propagate without rebuilding lib/.
+    resolverMainFields: [
+      'source',
+      ...(defaultConfig.resolver.resolverMainFields ?? [
+        'react-native',
+        'browser',
+        'main',
+      ]),
+    ],
   },
   transformer: {
     // The SDK requires expo-file-system inside try/catch for fallback-bundle

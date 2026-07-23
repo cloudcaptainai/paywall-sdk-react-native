@@ -238,7 +238,7 @@ export default function App() {
     setPurchaseStub(null);
     eventLog.current = [];
     setEvents([]);
-    // initHelium re-enables web checkout with defaults; sync the switches.
+    setAllowWebCheckoutWithoutUserId(false);
     setWebCheckoutEnabled(true);
     setAllowCheckoutWithoutUserId(false);
     console.log('[Example] resetHelium complete — re-initializing');

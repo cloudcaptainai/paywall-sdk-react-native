@@ -92,9 +92,11 @@ export default function App() {
       }
     };
     const subscription = Linking.addEventListener('url', onUrl);
-    Linking.getInitialURL().then((url) => {
-      if (url) onUrl({ url });
-    });
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) onUrl({ url });
+      })
+      .catch((e) => console.log('[Example] getInitialURL error', e));
     return () => subscription.remove();
   }, []);
 

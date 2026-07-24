@@ -31,6 +31,9 @@
     "react-test-renderer": "18.2.0",
     "typescript": "5.0.4"
   },
+  "overrides": {
+    "fast-xml-parser": "^5.7.0"
+  },
   "engines": {
     "node": ">=18"
   }

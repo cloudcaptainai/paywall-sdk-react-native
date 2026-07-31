@@ -1,0 +1,82 @@
+name: Update Android Dependency
+
+on:
+  repository_dispatch:
+    types: [update-android-dependency]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Android SDK version to update to (with or without leading v)'
+        required: true
+        type: string
+
+# Serialize runs so concurrent dispatches can't read the same package.json
+# version and open conflicting PRs with an identical patch bump.
+concurrency:
+  group: update-android-dependency
+  cancel-in-progress: false
+
+jobs:
+  update-android-dependency:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Normalize and validate version
+        env:
+          RAW_VERSION: ${{ github.event.client_payload.version || github.event.inputs.version }}
+        run: |
+          # The version comes from an external event payload; only accept a plain
+          # release tag so it can't inject into the shell steps below.
+          if [[ ! "$RAW_VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid Android SDK version: '$RAW_VERSION' (expected e.g. 4.4.8 or v4.4.8)"
+            exit 1
+          fi
+          # Android release tags are v-prefixed (e.g. v4.4.8) but build.gradle wants 4.4.8
+          echo "ANDROID_SDK_VERSION=${RAW_VERSION#v}" >> $GITHUB_ENV
+
+      - name: Update build.gradle
+        run: |
+          sed -i "s/com\.tryhelium\.paywall:core:[^\")]*/com.tryhelium.paywall:core:$ANDROID_SDK_VERSION/g" android/build.gradle
+          # sed exits 0 even when nothing matches; make sure the bump landed
+          # (grep also prints the resulting dependency line for the run log)
+          if ! grep -F "com.tryhelium.paywall:core:$ANDROID_SDK_VERSION" android/build.gradle; then
+            echo "Failed to update com.tryhelium.paywall:core in android/build.gradle"
+            exit 1
+          fi
+
+      - name: Bump package.json version
+        run: |
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+          NEW_VERSION=$(npm version patch --no-git-tag-version)
+          NEW_VERSION=${NEW_VERSION#v}
+
+          if [ "$(node -p "require('./package.json').version")" != "$NEW_VERSION" ]; then
+            echo "Failed to bump package.json version"
+            exit 1
+          fi
+
+          echo "Bumped version from $CURRENT_VERSION to $NEW_VERSION"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
+        with:
+          token: ${{ github.token }}
+          commit-message: "Update Helium Android SDK dependency to ${{ env.ANDROID_SDK_VERSION }}"
+          branch: update-android-sdk-${{ env.ANDROID_SDK_VERSION }}
+          title: "Update Helium Android SDK to ${{ env.ANDROID_SDK_VERSION }}"
+          body: |
+            Automated update of Helium Android SDK dependency to version ${{ env.ANDROID_SDK_VERSION }}.
+
+            Changes:
+            - Updated build.gradle dependency version
+            - Bumped package.json version (patch increment)
+
+            This PR was automatically created by the Android SDK release workflow.

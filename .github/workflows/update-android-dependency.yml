@@ -43,6 +43,15 @@ jobs:
 
       - name: Update build.gradle
         run: |
+          # A delayed dispatch for an older release must not downgrade the
+          # dependency, so require the requested version to be strictly newer.
+          CURRENT_SDK_VERSION=$(sed -nE 's/.*com\.tryhelium\.paywall:core:([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' android/build.gradle | head -n1)
+          if [ -z "$CURRENT_SDK_VERSION" ] \
+            || [ "$CURRENT_SDK_VERSION" = "$ANDROID_SDK_VERSION" ] \
+            || [ "$(printf '%s\n%s\n' "$CURRENT_SDK_VERSION" "$ANDROID_SDK_VERSION" | sort -V | tail -n1)" != "$ANDROID_SDK_VERSION" ]; then
+            echo "Requested version $ANDROID_SDK_VERSION is not newer than current $CURRENT_SDK_VERSION"
+            exit 1
+          fi
           sed -i "s/com\.tryhelium\.paywall:core:[^\")]*/com.tryhelium.paywall:core:$ANDROID_SDK_VERSION/g" android/build.gradle
           # sed exits 0 even when nothing matches; make sure the bump landed
           # (grep also prints the resulting dependency line for the run log)

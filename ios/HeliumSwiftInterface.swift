@@ -637,8 +637,8 @@ class HeliumBridge: RCTEventEmitter {
 
     @objc
     public func enableExternalWebCheckout(
-        _ successURL: String,
-        cancelURL: String,
+        _ redirectURL: String,
+        cancelURL: String?,
         paymentProcessors: [String]?
     ) {
         let processors: WebCheckoutProcessors
@@ -658,11 +658,18 @@ class HeliumBridge: RCTEventEmitter {
         } else {
             processors = .all
         }
-        Helium.config.enableExternalWebCheckout(
-            successURL: successURL,
-            cancelURL: cancelURL,
-            paymentProcessors: processors
-        )
+        if let cancelURL {
+            Helium.config.enableExternalWebCheckout(
+                successURL: redirectURL,
+                cancelURL: cancelURL,
+                paymentProcessors: processors
+            )
+        } else {
+            Helium.config.enableExternalWebCheckout(
+                redirectURL: redirectURL,
+                paymentProcessors: processors
+            )
+        }
     }
 
     @objc

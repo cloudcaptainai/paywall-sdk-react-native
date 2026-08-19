@@ -153,7 +153,7 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
-    enableExternalWebCheckout:(NSString *)successURL
+    enableExternalWebCheckout:(NSString *)redirectURL
     cancelURL:(NSString *)cancelURL
     paymentProcessors:(NSArray *)paymentProcessors
 )

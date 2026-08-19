@@ -153,14 +153,27 @@ describe('setPaywallPreviewsEnabledInDevBuilds', () => {
 describe('web checkout', () => {
   it('rejects an empty paymentProcessors array without calling the bridge', () => {
     Helium.enableExternalWebCheckout({
-      successURL: 'app://success',
-      cancelURL: 'app://cancel',
+      redirectURL: 'app://openapp',
       paymentProcessors: [],
     });
     expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
   });
 
-  it('passes through to the bridge on iOS', () => {
+  it('rejects an empty redirectURL without calling the bridge', () => {
+    Helium.enableExternalWebCheckout({ redirectURL: '' });
+    expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
+  });
+
+  it('passes a redirect URL through to the bridge on iOS', () => {
+    Helium.enableExternalWebCheckout({ redirectURL: 'app://openapp' });
+    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith(
+      'app://openapp',
+      null,
+      undefined
+    );
+  });
+
+  it('still passes the deprecated success and cancel URLs through to the bridge', () => {
     Helium.enableExternalWebCheckout({
       successURL: 'app://success',
       cancelURL: 'app://cancel',
@@ -182,10 +195,7 @@ describe('web checkout', () => {
       await expect(Helium.getPaddleCustomerId()).resolves.toBeUndefined();
       await expect(Helium.createStripePortalSession('app://r')).resolves.toBeUndefined();
       await expect(Helium.heliumHandleURL('app://success')).resolves.toBeUndefined();
-      Helium.enableExternalWebCheckout({
-        successURL: 'app://success',
-        cancelURL: 'app://cancel',
-      });
+      Helium.enableExternalWebCheckout({ redirectURL: 'app://openapp' });
       Helium.resetPaddleEntitlements();
 
       expect(bridge.hasActiveStripeEntitlement).not.toHaveBeenCalled();

@@ -654,26 +654,43 @@ export const heliumHandleURL = async (
  * paywalls. If not enabled, paywalls with Paddle/Stripe products will not show. Your
  * fallback paywall/s, if provided, will show instead.
  *
- * You must provide redirect URLs so Helium knows where to send the user after checkout
- * completes or is cancelled.
+ * You must provide a redirect URL so Helium knows where to send the user when checkout
+ * finishes. Checkout redirects back to it whether the purchase succeeds, is cancelled, or
+ * fails - the SDK determines the outcome itself.
  *
- * @param successURL The URL to redirect to after a successful payment.
- * @param cancelURL The URL the provider redirects to when the user cancels checkout.
+ * @param redirectURL The URL checkout redirects back to when the user is done.
  * @param paymentProcessors Which payment processors to enable. Defaults to both Paddle and
  *   Stripe. Pass `['paddle']` or `['stripe']` if your app only uses one to skip the unused
  *   processor's entitlement network calls.
  */
-export const enableExternalWebCheckout = ({
-  successURL,
-  cancelURL,
-  paymentProcessors,
-}: {
+export function enableExternalWebCheckout(options: {
+  redirectURL: string;
+  paymentProcessors?: WebCheckoutProcessor[];
+}): void;
+/**
+ * @deprecated Pass `redirectURL` instead. A single redirect URL covers success, cancel, and
+ * payment failure; the SDK determines the outcome itself.
+ */
+export function enableExternalWebCheckout(options: {
   successURL: string;
   cancelURL: string;
   paymentProcessors?: WebCheckoutProcessor[];
-}): void => {
+}): void;
+export function enableExternalWebCheckout(options: {
+  redirectURL?: string;
+  successURL?: string;
+  cancelURL?: string;
+  paymentProcessors?: WebCheckoutProcessor[];
+}): void {
+  const { redirectURL, successURL, cancelURL, paymentProcessors } = options;
   if (Platform.OS !== 'ios') {
     console.log('[Helium] enableExternalWebCheckout is only available on iOS');
+    return;
+  }
+  if (!redirectURL && !(successURL && cancelURL)) {
+    console.error(
+      '[Helium] enableExternalWebCheckout: redirectURL must not be empty.'
+    );
     return;
   }
   if (paymentProcessors && paymentProcessors.length === 0) {
@@ -683,11 +700,15 @@ export const enableExternalWebCheckout = ({
     return;
   }
   try {
-    HeliumBridge.enableExternalWebCheckout(successURL, cancelURL, paymentProcessors);
+    HeliumBridge.enableExternalWebCheckout(
+      redirectURL ?? successURL,
+      redirectURL ? null : cancelURL,
+      paymentProcessors
+    );
   } catch (e) {
     console.error('[Helium] enableExternalWebCheckout error', e);
   }
-};
+}
 
 /**
  * iOS only. Disables External Web Checkout Flow. Paywalls with Paddle or Stripe products

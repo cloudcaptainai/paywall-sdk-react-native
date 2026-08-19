@@ -694,8 +694,8 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun enableExternalWebCheckout(
-        successURL: String,
-        cancelURL: String,
+        redirectURL: String,
+        cancelURL: String?,
         paymentProcessors: ReadableArray?
     ) {
     }

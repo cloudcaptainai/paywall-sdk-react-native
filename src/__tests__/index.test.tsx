@@ -186,6 +186,18 @@ describe('web checkout', () => {
     );
   });
 
+  it('still accepts the deprecated shape on enableExternalWebCheckout', () => {
+    Helium.enableExternalWebCheckout({
+      successURL: 'app://success',
+      cancelURL: 'app://cancel',
+    });
+    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith(
+      'app://success',
+      'app://cancel',
+      undefined
+    );
+  });
+
   it('returns safe defaults without calling the bridge on non-iOS platforms', async () => {
     jest.clearAllMocks();
     const { Platform } = require('react-native');

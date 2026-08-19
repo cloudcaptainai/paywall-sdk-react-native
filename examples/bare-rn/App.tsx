@@ -73,7 +73,7 @@ function initHelium(onEvent: (event: HeliumPaywallEvent) => void) {
   if (isIOS) {
     // Must be called before initialize(). Omitting paymentProcessors enables all
     // (Paddle + Stripe), so any web-checkout paywall in the org can show.
-    enableExternalWebCheckout({redirectURL: RETURN_URL});
+    enableExternalWebCheckout({redirectURL: RETURN_URL, paymentProcessors: ['paddle', 'stripe']});
   }
   initialize({apiKey: HELIUM_API_KEY, onHeliumPaywallEvent: onEvent});
 }
@@ -346,7 +346,7 @@ export default function App() {
                 value={webCheckoutEnabled}
                 onValueChange={enabled => {
                   if (enabled) {
-                    enableExternalWebCheckout({redirectURL: RETURN_URL});
+                    enableExternalWebCheckout({redirectURL: RETURN_URL, paymentProcessors: ['paddle', 'stripe']});
                   } else {
                     disableExternalWebCheckout();
                   }

@@ -638,38 +638,41 @@ class HeliumBridge: RCTEventEmitter {
     @objc
     public func enableExternalWebCheckout(
         _ redirectURL: String,
-        cancelURL: String?,
         paymentProcessors: [String]?
     ) {
-        let processors: WebCheckoutProcessors
-        if let paymentProcessors {
-            var set: WebCheckoutProcessors = []
-            for p in paymentProcessors {
-                switch p.lowercased() {
-                case "paddle":
-                    set.insert(.paddle)
-                case "stripe":
-                    set.insert(.stripe)
-                default:
-                    print("[Helium] enableExternalWebCheckout: unknown payment processor '\(p)', ignoring")
-                }
+        Helium.config.enableExternalWebCheckout(
+            redirectURL: redirectURL,
+            paymentProcessors: parseWebCheckoutProcessors(paymentProcessors)
+        )
+    }
+
+    @objc
+    public func enableExternalWebCheckoutSuccessAndCancel(
+        _ successURL: String,
+        cancelURL: String,
+        paymentProcessors: [String]?
+    ) {
+        Helium.config.enableExternalWebCheckout(
+            successURL: successURL,
+            cancelURL: cancelURL,
+            paymentProcessors: parseWebCheckoutProcessors(paymentProcessors)
+        )
+    }
+
+    private func parseWebCheckoutProcessors(_ names: [String]?) -> WebCheckoutProcessors {
+        guard let names else { return .all }
+        var processors: WebCheckoutProcessors = []
+        for name in names {
+            switch name.lowercased() {
+            case "paddle":
+                processors.insert(.paddle)
+            case "stripe":
+                processors.insert(.stripe)
+            default:
+                print("[Helium] enableExternalWebCheckout: unknown payment processor '\(name)', ignoring")
             }
-            processors = set
-        } else {
-            processors = .all
         }
-        if let cancelURL {
-            Helium.config.enableExternalWebCheckout(
-                successURL: redirectURL,
-                cancelURL: cancelURL,
-                paymentProcessors: processors
-            )
-        } else {
-            Helium.config.enableExternalWebCheckout(
-                redirectURL: redirectURL,
-                paymentProcessors: processors
-            )
-        }
+        return processors
     }
 
     @objc

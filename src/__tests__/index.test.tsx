@@ -34,6 +34,7 @@ jest.mock('react-native', () => {
     resetTesting: jest.fn(),
     heliumHandleURL: jest.fn().mockResolvedValue('success'),
     enableExternalWebCheckout: jest.fn(),
+    enableExternalWebCheckoutSuccessAndCancel: jest.fn(),
     disableExternalWebCheckout: jest.fn(),
     setAllowWebCheckoutWithoutUserId: jest.fn(),
     hasActiveStripeEntitlement: jest.fn().mockResolvedValue(false),
@@ -82,7 +83,6 @@ describe('public API surface', () => {
     'createCustomPurchaseConfig',
     'heliumHandleURL',
     'enableExternalWebCheckout',
-    'enableExternalWebCheckoutSuccessAndCancel',
     'disableExternalWebCheckout',
     'setAllowWebCheckoutWithoutUserId',
     'hasActiveStripeEntitlement',
@@ -161,41 +161,32 @@ describe('web checkout', () => {
   });
 
   it('rejects an empty redirectURL without calling the bridge', () => {
-    Helium.enableExternalWebCheckout({ redirectURL: '' });
+    Helium.enableExternalWebCheckout({ redirectURL: '', paymentProcessors: ['stripe'] });
     expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
   });
 
   it('passes a redirect URL through to the bridge on iOS', () => {
-    Helium.enableExternalWebCheckout({ redirectURL: 'app://openapp' });
-    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith(
-      'app://openapp',
-      null,
-      undefined
-    );
-  });
-
-  it('still passes the deprecated success and cancel URLs through to the bridge', () => {
-    Helium.enableExternalWebCheckoutSuccessAndCancel({
-      successURL: 'app://success',
-      cancelURL: 'app://cancel',
+    Helium.enableExternalWebCheckout({
+      redirectURL: 'app://openapp',
+      paymentProcessors: ['stripe'],
     });
-    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith(
-      'app://success',
-      'app://cancel',
-      undefined
-    );
+    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith('app://openapp', [
+      'stripe',
+    ]);
   });
 
-  it('still accepts the deprecated shape on enableExternalWebCheckout', () => {
+  it('routes the deprecated shape to the dedicated bridge method', () => {
+    jest.clearAllMocks();
     Helium.enableExternalWebCheckout({
       successURL: 'app://success',
       cancelURL: 'app://cancel',
     });
-    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith(
+    expect(bridge.enableExternalWebCheckoutSuccessAndCancel).toHaveBeenCalledWith(
       'app://success',
       'app://cancel',
       undefined
     );
+    expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
   });
 
   it('returns safe defaults without calling the bridge on non-iOS platforms', async () => {
@@ -208,7 +199,10 @@ describe('web checkout', () => {
       await expect(Helium.getPaddleCustomerId()).resolves.toBeUndefined();
       await expect(Helium.createStripePortalSession('app://r')).resolves.toBeUndefined();
       await expect(Helium.heliumHandleURL('app://success')).resolves.toBeUndefined();
-      Helium.enableExternalWebCheckout({ redirectURL: 'app://openapp' });
+      Helium.enableExternalWebCheckout({
+        redirectURL: 'app://openapp',
+        paymentProcessors: ['stripe'],
+      });
       Helium.resetPaddleEntitlements();
 
       expect(bridge.hasActiveStripeEntitlement).not.toHaveBeenCalled();

@@ -82,6 +82,7 @@ describe('public API surface', () => {
     'createCustomPurchaseConfig',
     'heliumHandleURL',
     'enableExternalWebCheckout',
+    'enableExternalWebCheckoutSuccessAndCancel',
     'disableExternalWebCheckout',
     'setAllowWebCheckoutWithoutUserId',
     'hasActiveStripeEntitlement',
@@ -174,7 +175,7 @@ describe('web checkout', () => {
   });
 
   it('still passes the deprecated success and cancel URLs through to the bridge', () => {
-    Helium.enableExternalWebCheckout({
+    Helium.enableExternalWebCheckoutSuccessAndCancel({
       successURL: 'app://success',
       cancelURL: 'app://cancel',
     });

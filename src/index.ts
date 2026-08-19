@@ -26,6 +26,7 @@ export {
   heliumTesting,
   heliumHandleURL,
   enableExternalWebCheckout,
+  enableExternalWebCheckoutSuccessAndCancel,
   disableExternalWebCheckout,
   setAllowWebCheckoutWithoutUserId,
   hasActiveStripeEntitlement,

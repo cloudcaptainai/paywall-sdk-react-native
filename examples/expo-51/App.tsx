@@ -294,7 +294,10 @@ export default function App() {
                 value={webCheckoutEnabled}
                 onValueChange={(enabled) => {
                   if (enabled) {
-                    enableExternalWebCheckout({ redirectURL: RETURN_URL, paymentProcessors: ['paddle', 'stripe'] });
+                    enableExternalWebCheckout({
+                      redirectURL: RETURN_URL,
+                      paymentProcessors: ['paddle', 'stripe'],
+                    });
                   } else {
                     disableExternalWebCheckout();
                   }

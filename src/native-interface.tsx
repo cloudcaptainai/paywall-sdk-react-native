@@ -700,9 +700,7 @@ function enableExternalWebCheckout(options: {
   try {
     if (redirectURL !== undefined) {
       if (!redirectURL) {
-        console.error(
-          '[Helium] enableExternalWebCheckout: redirectURL must not be empty.'
-        );
+        console.error('[Helium] enableExternalWebCheckout: redirectURL must not be empty.');
         return;
       }
       HeliumBridge.enableExternalWebCheckout(redirectURL, paymentProcessors);

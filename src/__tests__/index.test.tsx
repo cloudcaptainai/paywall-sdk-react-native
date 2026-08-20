@@ -170,9 +170,7 @@ describe('web checkout', () => {
       redirectURL: 'app://openapp',
       paymentProcessors: ['stripe'],
     });
-    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith('app://openapp', [
-      'stripe',
-    ]);
+    expect(bridge.enableExternalWebCheckout).toHaveBeenCalledWith('app://openapp', ['stripe']);
   });
 
   it('routes the deprecated shape to the dedicated bridge method', () => {

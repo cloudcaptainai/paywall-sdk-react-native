@@ -155,7 +155,11 @@ function setupEventListeners(config: HeliumConfig) {
   });
 
   heliumEventEmitter.addListener('onPaywallSkipEvent', (event: PaywallSkippedEvent) => {
-    dispatchPaywallSkip(event);
+    try {
+      dispatchPaywallSkip(event);
+    } catch (e) {
+      console.error('[Helium] onPaywallSkipEvent handler failed', e);
+    }
   });
 }
 

@@ -374,6 +374,19 @@ describe('presentUpsell skip and entitled handling', () => {
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
 
+  it('contains an empty native skip payload', () => {
+    const onPaywallSkip = jest.fn();
+    Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
+
+    expect(() => emitNativeEvent('onPaywallSkipEvent', undefined)).not.toThrow();
+
+    expect(onPaywallSkip).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      '[Helium] onPaywallSkipEvent handler failed',
+      expect.any(Error)
+    );
+  });
+
   it('contains a throwing onPaywallSkip handler', () => {
     const onPaywallSkip = jest.fn(() => {
       throw new Error('boom');

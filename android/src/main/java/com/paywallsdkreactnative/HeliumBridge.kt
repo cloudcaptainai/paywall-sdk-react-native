@@ -26,10 +26,12 @@ import com.tryhelium.paywall.core.PaywallPresentationConfig
 import com.tryhelium.paywall.core.event.HeliumEvent
 import com.tryhelium.paywall.core.event.HeliumEventDictionaryMapper
 import com.tryhelium.paywall.core.event.PaywallEventHandlers
+import com.tryhelium.paywall.core.event.PaywallSkippedReason
 import com.tryhelium.paywall.core.logger.HeliumLogLevel
 import com.tryhelium.paywall.core.logger.HeliumLogger
 import com.tryhelium.paywall.delegate.HeliumPaywallDelegate
 import com.tryhelium.paywall.delegate.PlayStorePaywallDelegate
+import com.tryhelium.paywall.ui.PaywallNotShownReason
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -171,6 +173,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         const val EVENT_PAYWALL_HANDLERS = "paywallEventHandlers"
         const val EVENT_HELIUM_LOG = "onHeliumLogEvent"
         const val EVENT_ENTITLED = "onEntitledEvent"
+        const val EVENT_PAYWALL_SKIP = "onPaywallSkipEvent"
 
         private const val TRUE_MARKER = "__helium_rn_bool_true__"
         private const val FALSE_MARKER = "__helium_rn_bool_false__"
@@ -374,12 +377,28 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                 dontShowIfAlreadyEntitled = dontShowIfAlreadyEntitled,
                 disableSystemBackNavigation = disableSystemBackNavigation
             ),
-            onEntitled = {
-                BridgeStateManager.safeSendEvent(EVENT_ENTITLED, emptyMap())
+            onEntitled = { entitledEvent ->
+                val entitledEventMap = HeliumEventDictionaryMapper.toDictionary(entitledEvent.event).toMutableMap()
+                applyEventFieldAliases(entitledEventMap)
+                BridgeStateManager.safeSendEvent(EVENT_ENTITLED, entitledEventMap)
             },
             eventListener = eventHandlers,
-            onPaywallNotShown = { _ ->
-                // nothing for now
+            onPaywallNotShown = { reason ->
+                val skipReason = when (reason) {
+                    PaywallNotShownReason.TargetingHoldout -> PaywallSkippedReason.TargetingHoldout
+                    PaywallNotShownReason.AlreadyEntitled -> PaywallSkippedReason.AlreadyEntitled
+                    is PaywallNotShownReason.Error -> null
+                }
+                if (skipReason != null) {
+                    BridgeStateManager.safeSendEvent(
+                        EVENT_PAYWALL_SKIP,
+                        mapOf(
+                            "type" to "paywallSkipped",
+                            "triggerName" to trigger,
+                            "skipReason" to skipReason.rawValue
+                        )
+                    )
+                }
             }
         )
     }

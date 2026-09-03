@@ -178,6 +178,7 @@ class HeliumBridge: RCTEventEmitter {
             "paywallEventHandlers",
             "onHeliumLogEvent",
             "onEntitledEvent",
+            "onPaywallSkipEvent",
         ]
     }
 
@@ -378,11 +379,29 @@ class HeliumBridge: RCTEventEmitter {
                     PurchaseStateManager.shared.safeSendEvent(eventName: "paywallEventHandlers", eventData: eventDict)
                 }
             ),
-            onEntitled: {
-                PurchaseStateManager.shared.safeSendEvent(eventName: "onEntitledEvent", eventData: [:])
+            onEntitled: { entitledEvent in
+                var eventDict = entitledEvent.event.toDictionary()
+                applyEventFieldAliases(&eventDict)
+                PurchaseStateManager.shared.safeSendEvent(eventName: "onEntitledEvent", eventData: eventDict)
             }
-        ) { _ in
-            // paywallNotShownReason — nothing for now
+        ) { paywallNotShownReason in
+            let skipReason: PaywallSkippedReason
+            switch paywallNotShownReason {
+            case .targetingHoldout:
+                skipReason = .targetingHoldout
+            case .alreadyEntitled:
+                skipReason = .alreadyEntitled
+            case .error:
+                return
+            }
+            PurchaseStateManager.shared.safeSendEvent(
+                eventName: "onPaywallSkipEvent",
+                eventData: [
+                    "type": "paywallSkipped",
+                    "triggerName": trigger,
+                    "skipReason": skipReason.rawValue,
+                ]
+            )
         }
     }
 

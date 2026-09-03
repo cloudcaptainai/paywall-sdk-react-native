@@ -306,8 +306,7 @@ export type PresentUpsellParams = {
    * and a `paywallSkipped` event is fired. Defaults to false, which is right for most paywalls: user-initiated paywalls
    * (e.g. "Upgrade to Premium") and onboarding paywalls should always show, and entitled users can still use
    * "Restore Purchases". Enable it only where a paying user must never see a paywall, such as one presented automatically
-   * on app open. If your app already tracks entitlement, keep it false and check `hasEntitlementForPaywall(triggerName)`
-   * or `hasAnyActiveSubscription()` before presenting instead.
+   * on app open. If your app already tracks entitlement, keep it false and use your existing entitlement logic instead.
    * See https://docs.tryhelium.com/sdk/quickstart-react-native#checking-subscription-status-%26-entitlements
    */
   dontShowIfAlreadyEntitled?: boolean;
@@ -318,7 +317,7 @@ export type PresentUpsellParams = {
    * entitlement (`purchaseAlreadyEntitled`, iOS only) — in these cases it is called when the paywall closes.
    * If you set `dontShowIfAlreadyEntitled` to true, this handler is also called immediately with a
    * `paywallSkipped` event when the paywall is not shown to users who already have entitlement
-   * for a product in the paywall; when `onEntitled` is not provided, that skip goes to `onPaywallSkip` instead.
+   * for a product in the paywall.
    */
   onEntitled?: (event?: PaywallEntitledEvent) => void;
   /** Optional. Called when the paywall is intentionally not shown for this trigger — a targeting holdout
@@ -328,7 +327,7 @@ export type PresentUpsellParams = {
    * Not called for errors — see `onPaywallUnavailable`.
    */
   onPaywallSkip?: (event: PaywallSkippedEvent) => void;
-  /** Optional. Called if desired paywall and fallback paywall did not show for any reason.
+  /** Optional. Called if the desired paywall and fallback paywall did not show due to an unexpected error.
    * This is uncommon, but best practice to handle it just in case.
    * See https://docs.tryhelium.com/guides/fallback-bundle */
   onPaywallUnavailable?: () => void;

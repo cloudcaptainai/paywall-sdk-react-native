@@ -293,10 +293,23 @@ export type PurchaseRestoredOrigin =
   | 'detectedPostWebCheckout';
 
 export type PresentUpsellParams = {
+  /** The trigger configured in the Helium dashboard (https://app.tryhelium.com/workflows). */
   triggerName: string;
+  /** Optional. Handlers for this presentation's paywall lifecycle events (open, close, dismiss, purchase,
+   * open failure, custom actions). Replaced by the next `presentUpsell` call. */
   eventHandlers?: PaywallEventHandlers;
+  /** Optional. Custom traits to send to the paywall. User traits are automatically included as paywall traits,
+   * as is "trigger"; on duplicate keys the value from `customPaywallTraits` wins. */
   customPaywallTraits?: Record<string, any>;
-  /** Optional. If true, the paywall will not be shown if the user already has an entitlement for a product in the paywall. */
+  /** Optional. If true, the paywall is skipped when the user already has an active entitlement for a product in the
+   * paywall: `onEntitled` is called with a `paywallSkipped` event (or `onPaywallSkip` if `onEntitled` is not provided)
+   * and a `paywallSkipped` event is fired. Defaults to false, which is right for most paywalls: user-initiated paywalls
+   * (e.g. "Upgrade to Premium") and onboarding paywalls should always show, and entitled users can still use
+   * "Restore Purchases". Enable it only where a paying user must never see a paywall, such as one presented automatically
+   * on app open. If your app already tracks entitlement, keep it false and check `hasEntitlementForPaywall(triggerName)`
+   * or `hasAnyActiveSubscription()` before presenting instead.
+   * See https://docs.tryhelium.com/sdk/quickstart-react-native#checking-subscription-status-%26-entitlements
+   */
   dontShowIfAlreadyEntitled?: boolean;
   /** Optional. Android only. If true, disables the system back button/gesture while the paywall is displayed. Defaults to false. */
   androidDisableSystemBackNavigation?: boolean;

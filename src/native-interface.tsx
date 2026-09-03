@@ -220,6 +220,13 @@ let paywallEventHandlers: PaywallEventHandlers | undefined;
 let presentOnPaywallUnavailable: (() => void) | undefined;
 let presentOnEntitled: ((event?: PaywallEntitledEvent) => void) | undefined;
 let presentOnPaywallSkip: ((event: PaywallSkippedEvent) => void) | undefined;
+/**
+ * Presents a full-screen paywall for the specified trigger.
+ *
+ * You must have a trigger and workflow configured in the Helium dashboard (https://app.tryhelium.com/workflows)
+ * in order to show a paywall. See `PresentUpsellParams` for every option, including the per-presentation
+ * `onEntitled` / `onPaywallSkip` / `onPaywallUnavailable` handlers and when (not) to use `dontShowIfAlreadyEntitled`.
+ */
 export const presentUpsell = ({
   triggerName,
   eventHandlers,

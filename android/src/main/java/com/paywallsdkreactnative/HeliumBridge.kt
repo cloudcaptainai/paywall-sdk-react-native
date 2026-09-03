@@ -363,9 +363,11 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
 
         val eventHandlers = PaywallEventHandlers(
             onAnyEvent = { event ->
-                val eventMap = HeliumEventDictionaryMapper.toDictionary(event).toMutableMap()
-                applyEventFieldAliases(eventMap)
-                BridgeStateManager.safeSendEvent(EVENT_PAYWALL_HANDLERS, eventMap)
+                runCatching {
+                    val eventMap = HeliumEventDictionaryMapper.toDictionary(event).toMutableMap()
+                    applyEventFieldAliases(eventMap)
+                    BridgeStateManager.safeSendEvent(EVENT_PAYWALL_HANDLERS, eventMap)
+                }.onFailure { Log.w(TAG, "Failed to forward paywall event", it) }
             },
         )
 
@@ -378,27 +380,31 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                 disableSystemBackNavigation = disableSystemBackNavigation
             ),
             onEntitled = { entitledEvent ->
-                val entitledEventMap = HeliumEventDictionaryMapper.toDictionary(entitledEvent.event).toMutableMap()
-                applyEventFieldAliases(entitledEventMap)
-                BridgeStateManager.safeSendEvent(EVENT_ENTITLED, entitledEventMap)
+                runCatching {
+                    val entitledEventMap = HeliumEventDictionaryMapper.toDictionary(entitledEvent.event).toMutableMap()
+                    applyEventFieldAliases(entitledEventMap)
+                    BridgeStateManager.safeSendEvent(EVENT_ENTITLED, entitledEventMap)
+                }.onFailure { Log.w(TAG, "Failed to forward entitled event", it) }
             },
             eventListener = eventHandlers,
             onPaywallNotShown = { reason ->
-                val skipReason = when (reason) {
-                    PaywallNotShownReason.TargetingHoldout -> PaywallSkippedReason.TargetingHoldout
-                    PaywallNotShownReason.AlreadyEntitled -> PaywallSkippedReason.AlreadyEntitled
-                    is PaywallNotShownReason.Error -> null
-                }
-                if (skipReason != null) {
-                    BridgeStateManager.safeSendEvent(
-                        EVENT_PAYWALL_SKIP,
-                        mapOf(
-                            "type" to "paywallSkipped",
-                            "triggerName" to trigger,
-                            "skipReason" to skipReason.rawValue
+                runCatching {
+                    val skipReason = when (reason) {
+                        PaywallNotShownReason.TargetingHoldout -> PaywallSkippedReason.TargetingHoldout
+                        PaywallNotShownReason.AlreadyEntitled -> PaywallSkippedReason.AlreadyEntitled
+                        is PaywallNotShownReason.Error -> null
+                    }
+                    if (skipReason != null) {
+                        BridgeStateManager.safeSendEvent(
+                            EVENT_PAYWALL_SKIP,
+                            mapOf(
+                                "type" to "paywallSkipped",
+                                "triggerName" to trigger,
+                                "skipReason" to skipReason.rawValue
+                            )
                         )
-                    )
-                }
+                    }
+                }.onFailure { Log.w(TAG, "Failed to forward paywall skip", it) }
             }
         )
     }

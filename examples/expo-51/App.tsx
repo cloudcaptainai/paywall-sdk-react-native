@@ -109,6 +109,7 @@ export default function App() {
         onAnyEvent: (event) => console.log('[Example] event →', event.type),
       },
       onEntitled: () => console.log('[Example] onEntitled fired'),
+      onPaywallSkip: (event) => console.log('[Example] onPaywallSkip fired', event.skipReason),
       onPaywallUnavailable: () => console.log('[Example] onPaywallUnavailable fired'),
     });
   };

@@ -365,14 +365,18 @@ describe('presentUpsell skip and entitled handling', () => {
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
 
-  it('drops a paywallSkipped entitled payload that is missing skipReason', () => {
+  it('still dispatches a paywallSkipped entitled payload that is missing skipReason', () => {
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
     emitNativeEvent('onEntitledEvent', { type: 'paywallSkipped', triggerName: 'my_trigger' });
 
-    expect(onPaywallSkip).not.toHaveBeenCalled();
+    expect(onPaywallSkip).toHaveBeenCalledWith({
+      type: 'paywallSkipped',
+      triggerName: 'my_trigger',
+      skipReason: 'unknown',
+    });
     expect(consoleWarn).toHaveBeenCalledWith(
       '[Helium] paywallSkipped event is missing triggerName or skipReason',
       expect.objectContaining({ type: 'paywallSkipped' })

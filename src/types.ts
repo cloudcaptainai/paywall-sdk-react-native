@@ -264,8 +264,8 @@ export type HeliumPaywallEvent = {
 /** Identifies which payment processor completed a purchase. */
 export type HeliumPaymentProcessor = 'appStore' | 'stripe' | 'paddle';
 
-/** Reason a paywall was skipped (not shown) for a trigger. */
-export type PaywallSkippedReason = 'targetingHoldout' | 'alreadyEntitled';
+/** Reason a paywall was skipped (not shown) for a trigger. `unknown` only appears if the native payload carried no reason. */
+export type PaywallSkippedReason = 'targetingHoldout' | 'alreadyEntitled' | 'unknown';
 
 /**
  * The entitling event passed to `onEntitled`, identifying how the user became (or was found to be) entitled.
@@ -302,11 +302,10 @@ export type PresentUpsellParams = {
    * as is "trigger"; on duplicate keys the value from `customPaywallTraits` wins. */
   customPaywallTraits?: Record<string, any>;
   /** Optional. If true, the paywall is skipped when the user already has an active entitlement for a product in the
-   * paywall: `onEntitled` is called with a `paywallSkipped` event (or `onPaywallSkip` if `onEntitled` is not provided)
-   * and a `paywallSkipped` event is fired. Defaults to false, which is right for most paywalls: user-initiated paywalls
-   * (e.g. "Upgrade to Premium") and onboarding paywalls should always show, and entitled users can still use
-   * "Restore Purchases". Enable it only where a paying user must never see a paywall, such as one presented automatically
-   * on app open. If your app already tracks entitlement, keep it false and use your existing entitlement logic instead.
+   * paywall. Defaults to false, which is right for most paywalls: user-initiated paywalls (e.g. "Upgrade to Premium")
+   * and onboarding paywalls should almost always show, and entitled users can still use "Restore Purchases". Enable it
+   * only where a paying user must never see a paywall, such as one presented automatically on app open. If your app
+   * already tracks entitlement, keep it false and use your existing entitlement logic instead.
    * See https://docs.tryhelium.com/sdk/quickstart-react-native#checking-subscription-status-%26-entitlements
    */
   dontShowIfAlreadyEntitled?: boolean;

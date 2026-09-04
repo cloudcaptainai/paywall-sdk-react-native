@@ -142,21 +142,25 @@ function setupEventListeners(config: HeliumConfig) {
   });
 
   heliumEventEmitter.addListener('onEntitledEvent', (event?: PaywallEntitledEvent) => {
-    const entitledEvent = event && event.type ? event : undefined;
-    if (presentOnEntitled) {
-      dispatchEntitled(entitledEvent);
-    } else if (entitledEvent?.type === 'paywallSkipped') {
-      if (!entitledEvent.triggerName || !entitledEvent.skipReason) {
-        console.warn(
-          '[Helium] paywallSkipped event is missing triggerName or skipReason',
-          entitledEvent
-        );
+    try {
+      const entitledEvent = event && event.type ? event : undefined;
+      if (presentOnEntitled) {
+        dispatchEntitled(entitledEvent);
+      } else if (entitledEvent?.type === 'paywallSkipped') {
+        if (!entitledEvent.triggerName || !entitledEvent.skipReason) {
+          console.warn(
+            '[Helium] paywallSkipped event is missing triggerName or skipReason',
+            entitledEvent
+          );
+        }
+        dispatchPaywallSkip({
+          type: 'paywallSkipped',
+          triggerName: entitledEvent.triggerName ?? 'hlm_unknown',
+          skipReason: entitledEvent.skipReason ?? 'unknown',
+        });
       }
-      dispatchPaywallSkip({
-        type: 'paywallSkipped',
-        triggerName: entitledEvent.triggerName ?? 'hlm_unknown',
-        skipReason: entitledEvent.skipReason ?? 'unknown',
-      });
+    } catch (e) {
+      console.error('[Helium] onEntitledEvent handler failed', e);
     }
   });
 

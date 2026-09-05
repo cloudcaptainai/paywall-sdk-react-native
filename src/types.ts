@@ -264,7 +264,7 @@ export type HeliumPaywallEvent = {
 /** Identifies which payment processor completed a purchase. */
 export type HeliumPaymentProcessor = 'appStore' | 'stripe' | 'paddle';
 
-/** Reason a paywall was skipped (not shown) for a trigger. `unknown` only appears if the native payload carried no reason. */
+/** Reason a paywall was skipped (not shown) for a trigger. `unknown` is a defensive default and should not occur in normal use. */
 export type PaywallSkippedReason = 'targetingHoldout' | 'alreadyEntitled' | 'unknown';
 
 /**

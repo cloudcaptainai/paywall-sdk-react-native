@@ -12,6 +12,7 @@ import type {
   HeliumPaywallEvent,
   PaywallEntitledEvent,
   PaywallSkippedEvent,
+  PaywallSkippedReason,
   HeliumTransactionStatus,
   HeliumCheckoutRedirectType,
   ResetHeliumOptions,
@@ -147,17 +148,7 @@ function setupEventListeners(config: HeliumConfig) {
       if (presentOnEntitled) {
         dispatchEntitled(entitledEvent);
       } else if (entitledEvent?.type === 'paywallSkipped') {
-        if (!entitledEvent.triggerName || !entitledEvent.skipReason) {
-          console.warn(
-            '[Helium] paywallSkipped event is missing triggerName or skipReason',
-            entitledEvent
-          );
-        }
-        dispatchPaywallSkip({
-          type: 'paywallSkipped',
-          triggerName: entitledEvent.triggerName ?? 'hlm_unknown',
-          skipReason: entitledEvent.skipReason ?? 'unknown',
-        });
+        dispatchPaywallSkip(entitledEvent);
       }
     } catch (e) {
       console.error('[Helium] onEntitledEvent handler failed', e);
@@ -363,15 +354,25 @@ function dispatchEntitled(entitledEvent?: PaywallEntitledEvent) {
   }
 }
 
-function dispatchPaywallSkip(event: PaywallSkippedEvent) {
-  if (event.skipReason === 'alreadyEntitled' && presentOnEntitled) {
-    dispatchEntitled(event);
+function dispatchPaywallSkip(
+  event: { triggerName?: string; skipReason?: PaywallSkippedReason } | undefined
+) {
+  if (!event?.triggerName || !event?.skipReason) {
+    console.warn('[Helium] paywallSkipped event is missing triggerName or skipReason', event);
+  }
+  const skipEvent: PaywallSkippedEvent = {
+    type: 'paywallSkipped',
+    triggerName: event?.triggerName || 'hlm_unknown',
+    skipReason: event?.skipReason || 'unknown',
+  };
+  if (skipEvent.skipReason === 'alreadyEntitled' && presentOnEntitled) {
+    dispatchEntitled(skipEvent);
     return;
   }
   const onPaywallSkip = presentOnPaywallSkip;
   presentOnPaywallSkip = undefined;
   try {
-    onPaywallSkip?.(event);
+    onPaywallSkip?.(skipEvent);
   } catch (e) {
     console.error('[Helium] onPaywallSkip callback failed', e);
   }
@@ -393,16 +394,21 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
     case 'paywallOpenFailed':
       paywallEventHandlers = undefined;
       const unavailableReason = event.paywallUnavailableReason;
+      const onPaywallUnavailable = presentOnPaywallUnavailable;
+      presentOnPaywallUnavailable = undefined;
+      presentOnPaywallSkip = undefined;
       if (
         event.triggerName &&
         unavailableReason !== 'alreadyPresented' &&
         unavailableReason !== 'secondTryNoMatch'
       ) {
         console.log('[Helium] paywall open failed', unavailableReason);
-        presentOnPaywallUnavailable?.();
+        try {
+          onPaywallUnavailable?.();
+        } catch (e) {
+          console.error('[Helium] onPaywallUnavailable callback failed', e);
+        }
       }
-      presentOnPaywallUnavailable = undefined;
-      presentOnPaywallSkip = undefined;
       break;
   }
 }

@@ -430,6 +430,65 @@ describe('presentUpsell skip and entitled handling', () => {
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
   });
 
+  it('normalizes a skip arriving over the skip channel', () => {
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const onPaywallSkip = jest.fn();
+    Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
+
+    emitNativeEvent('onPaywallSkipEvent', { type: 'paywallSkipped' });
+
+    expect(onPaywallSkip).toHaveBeenCalledWith({
+      type: 'paywallSkipped',
+      triggerName: 'hlm_unknown',
+      skipReason: 'unknown',
+    });
+    expect(consoleWarn).toHaveBeenCalled();
+    consoleWarn.mockRestore();
+  });
+
+  it('keeps the skip handler of a paywall re-presented from onPaywallUnavailable', () => {
+    const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const onPaywallSkip = jest.fn();
+    const onPaywallUnavailable = jest.fn(() => {
+      Helium.presentUpsell({ triggerName: 'second', onPaywallSkip });
+    });
+    Helium.presentUpsell({ triggerName: 'first', onPaywallUnavailable });
+
+    emitNativeEvent('onHeliumPaywallEvent', {
+      type: 'paywallOpenFailed',
+      triggerName: 'first',
+      paywallUnavailableReason: 'notInitialized',
+    });
+    emitNativeEvent('onPaywallSkipEvent', { ...holdoutSkip, triggerName: 'second' });
+
+    expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
+    expect(onPaywallSkip).toHaveBeenCalledTimes(1);
+    consoleLog.mockRestore();
+  });
+
+  it('contains a throwing onPaywallUnavailable handler on paywallOpenFailed', () => {
+    const consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const onPaywallUnavailable = jest.fn(() => {
+      throw new Error('boom');
+    });
+    Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallUnavailable });
+
+    expect(() =>
+      emitNativeEvent('onHeliumPaywallEvent', {
+        type: 'paywallOpenFailed',
+        triggerName: 'my_trigger',
+        paywallUnavailableReason: 'notInitialized',
+      })
+    ).not.toThrow();
+
+    expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledWith(
+      '[Helium] onPaywallUnavailable callback failed',
+      expect.any(Error)
+    );
+    consoleLog.mockRestore();
+  });
+
   it('clears the pending handler on paywallClose', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });

@@ -169,6 +169,13 @@ export interface PaywallOpenFailedEvent {
   loadingBudgetMS?: number;
 }
 
+/** Passed to `onPaywallSkip` when the paywall is intentionally not shown for a trigger. */
+export interface PaywallSkippedEvent {
+  type: 'paywallSkipped';
+  triggerName: string;
+  skipReason: PaywallSkippedReason;
+}
+
 export interface CustomPaywallActionEvent {
   type: 'customPaywallAction';
   triggerName: string;
@@ -257,8 +264,20 @@ export type HeliumPaywallEvent = {
 /** Identifies which payment processor completed a purchase. */
 export type HeliumPaymentProcessor = 'appStore' | 'stripe' | 'paddle';
 
-/** Reason a paywall was skipped (not shown) for a trigger. */
-export type PaywallSkippedReason = 'targetingHoldout' | 'alreadyEntitled';
+/** Reason a paywall was skipped (not shown) for a trigger. `unknown` is a defensive default and should not occur in normal use. */
+export type PaywallSkippedReason = 'targetingHoldout' | 'alreadyEntitled' | 'unknown';
+
+/**
+ * The entitling event passed to `onEntitled`, identifying how the user became (or was found to be) entitled.
+ * - `purchaseSucceeded`: a new purchase completed successfully.
+ * - `purchaseRestored`: an existing entitlement was surfaced via restore.
+ * - `purchaseAlreadyEntitled`: a purchase attempt resolved to an entitlement the user already had. (iOS only)
+ * - `paywallSkipped`: the paywall was not shown because the user is already entitled
+ *   (requires `dontShowIfAlreadyEntitled`).
+ */
+export type PaywallEntitledEvent = HeliumPaywallEvent & {
+  type: 'purchaseSucceeded' | 'purchaseRestored' | 'purchaseAlreadyEntitled' | 'paywallSkipped';
+};
 
 /**
  * How an existing entitlement was surfaced on a `purchaseRestored` event.
@@ -274,19 +293,40 @@ export type PurchaseRestoredOrigin =
   | 'detectedPostWebCheckout';
 
 export type PresentUpsellParams = {
+  /** The trigger configured in the Helium dashboard (https://app.tryhelium.com/workflows). */
   triggerName: string;
+  /** Optional. Handlers for this presentation's paywall lifecycle events (open, close, dismiss, purchase,
+   * open failure, custom actions). Replaced by the next `presentUpsell` call. */
   eventHandlers?: PaywallEventHandlers;
+  /** Optional. Custom traits to send to the paywall. User traits are automatically included as paywall traits,
+   * as is "trigger"; on duplicate keys the value from `customPaywallTraits` wins. */
   customPaywallTraits?: Record<string, any>;
-  /** Optional. If true, the paywall will not be shown if the user already has an entitlement for a product in the paywall. */
+  /** Optional. If true, the paywall is skipped when the user already has an active entitlement for a product in the
+   * paywall. Defaults to false, which is right for most paywalls: user-initiated paywalls (e.g. "Upgrade to Premium")
+   * and onboarding paywalls should almost always show, and entitled users can still use "Restore Purchases". Enable it
+   * only where a paying user must never see a paywall, such as one presented automatically on app open. If your app
+   * already tracks entitlement, keep it false and use your existing entitlement logic instead.
+   * See https://docs.tryhelium.com/sdk/quickstart-react-native#checking-subscription-status-%26-entitlements
+   */
   dontShowIfAlreadyEntitled?: boolean;
   /** Optional. Android only. If true, disables the system back button/gesture while the paywall is displayed. Defaults to false. */
   androidDisableSystemBackNavigation?: boolean;
-  /** Optional. Called upon purchase success or purchase restore.
-   * If you set `dontShowIfAlreadyEntitled` to true, this handler will also be called when paywall not shown
-   * to users who already have entitlement for a product in the paywall.
+  /** Optional. Called with the entitling event upon purchase success (`purchaseSucceeded`),
+   * purchase restore (`purchaseRestored`), or a purchase attempt resolving to an existing
+   * entitlement (`purchaseAlreadyEntitled`, iOS only) — in these cases it is called when the paywall closes.
+   * If you set `dontShowIfAlreadyEntitled` to true, this handler is also called immediately with a
+   * `paywallSkipped` event when the paywall is not shown to users who already have entitlement
+   * for a product in the paywall.
    */
-  onEntitled?: () => void;
-  /** Optional. Called if desired paywall and fallback paywall did not show for any reason.
+  onEntitled?: (event?: PaywallEntitledEvent) => void;
+  /** Optional. Called when the paywall is intentionally not shown for this trigger — a targeting holdout
+   * configured in your workflow (`skipReason` = `targetingHoldout`), or, when `dontShowIfAlreadyEntitled` is true,
+   * an already-entitled user (`skipReason` = `alreadyEntitled`). For already-entitled skips `onEntitled` takes
+   * precedence: `onPaywallSkip` is only called for that case when `onEntitled` is not provided.
+   * Not called for errors — see `onPaywallUnavailable`.
+   */
+  onPaywallSkip?: (event: PaywallSkippedEvent) => void;
+  /** Optional. Called if the desired paywall and fallback paywall did not show due to an unexpected error.
    * This is uncommon, but best practice to handle it just in case.
    * See https://docs.tryhelium.com/guides/fallback-bundle */
   onPaywallUnavailable?: () => void;

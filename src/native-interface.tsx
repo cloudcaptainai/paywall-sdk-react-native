@@ -10,6 +10,9 @@ import type {
   PresentUpsellParams,
   PaywallEventHandlers,
   HeliumPaywallEvent,
+  PaywallEntitledEvent,
+  PaywallSkippedEvent,
+  PaywallSkippedReason,
   HeliumTransactionStatus,
   HeliumCheckoutRedirectType,
   ResetHeliumOptions,
@@ -40,6 +43,7 @@ const HELIUM_EVENT_NAMES = [
   'paywallEventHandlers',
   'onHeliumLogEvent',
   'onEntitledEvent',
+  'onPaywallSkipEvent',
 ] as const;
 
 const removeAllHeliumListeners = () => {
@@ -138,9 +142,25 @@ function setupEventListeners(config: HeliumConfig) {
     logHeliumEvent(event);
   });
 
-  heliumEventEmitter.addListener('onEntitledEvent', () => {
-    presentOnEntitled?.();
-    presentOnEntitled = undefined;
+  heliumEventEmitter.addListener('onEntitledEvent', (event?: PaywallEntitledEvent) => {
+    try {
+      const entitledEvent = event && event.type ? event : undefined;
+      if (presentOnEntitled) {
+        dispatchEntitled(entitledEvent);
+      } else if (entitledEvent?.type === 'paywallSkipped') {
+        dispatchPaywallSkip(entitledEvent);
+      }
+    } catch (e) {
+      console.error('[Helium] onEntitledEvent handler failed', e);
+    }
+  });
+
+  heliumEventEmitter.addListener('onPaywallSkipEvent', (event: PaywallSkippedEvent) => {
+    try {
+      dispatchPaywallSkip(event);
+    } catch (e) {
+      console.error('[Helium] onPaywallSkipEvent handler failed', e);
+    }
   });
 }
 
@@ -199,7 +219,14 @@ export const initialize = async (config: HeliumConfig) => {
 
 let paywallEventHandlers: PaywallEventHandlers | undefined;
 let presentOnPaywallUnavailable: (() => void) | undefined;
-let presentOnEntitled: (() => void) | undefined;
+let presentOnEntitled: ((event?: PaywallEntitledEvent) => void) | undefined;
+let presentOnPaywallSkip: ((event: PaywallSkippedEvent) => void) | undefined;
+/**
+ * Presents a full-screen paywall for the specified trigger.
+ *
+ * You must have a trigger and workflow configured in the Helium dashboard (https://app.tryhelium.com/workflows)
+ * in order to show a paywall. See `PresentUpsellParams` for every option.
+ */
 export const presentUpsell = ({
   triggerName,
   eventHandlers,
@@ -207,12 +234,14 @@ export const presentUpsell = ({
   dontShowIfAlreadyEntitled,
   androidDisableSystemBackNavigation,
   onEntitled,
+  onPaywallSkip,
   onPaywallUnavailable,
 }: PresentUpsellParams) => {
   try {
     paywallEventHandlers = eventHandlers;
     presentOnPaywallUnavailable = onPaywallUnavailable;
     presentOnEntitled = onEntitled;
+    presentOnPaywallSkip = onPaywallSkip;
     HeliumBridge.presentUpsell(
       triggerName,
       convertBooleansToMarkers(customPaywallTraits),
@@ -226,6 +255,7 @@ export const presentUpsell = ({
     paywallEventHandlers = undefined;
     presentOnPaywallUnavailable = undefined;
     presentOnEntitled = undefined;
+    presentOnPaywallSkip = undefined;
     onPaywallUnavailable?.();
     HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
   }
@@ -311,11 +341,49 @@ function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
   }
 }
 
+function dispatchEntitled(entitledEvent?: PaywallEntitledEvent) {
+  const onEntitled = presentOnEntitled;
+  presentOnEntitled = undefined;
+  if (entitledEvent?.type === 'paywallSkipped') {
+    presentOnPaywallSkip = undefined;
+  }
+  try {
+    onEntitled?.(entitledEvent);
+  } catch (e) {
+    console.error('[Helium] onEntitled callback failed', e);
+  }
+}
+
+function dispatchPaywallSkip(
+  event: { triggerName?: string; skipReason?: PaywallSkippedReason } | undefined
+) {
+  if (!event?.triggerName || !event?.skipReason) {
+    console.warn('[Helium] paywallSkipped event is missing triggerName or skipReason', event);
+  }
+  const skipEvent: PaywallSkippedEvent = {
+    type: 'paywallSkipped',
+    triggerName: event?.triggerName || 'hlm_unknown',
+    skipReason: event?.skipReason || 'unknown',
+  };
+  if (skipEvent.skipReason === 'alreadyEntitled' && presentOnEntitled) {
+    dispatchEntitled(skipEvent);
+    return;
+  }
+  const onPaywallSkip = presentOnPaywallSkip;
+  presentOnPaywallSkip = undefined;
+  try {
+    onPaywallSkip?.(skipEvent);
+  } catch (e) {
+    console.error('[Helium] onPaywallSkip callback failed', e);
+  }
+}
+
 function handlePaywallEvent(event: HeliumPaywallEvent) {
   switch (event.type) {
     case 'paywallClose':
       if (!event.isSecondTry) {
         paywallEventHandlers = undefined;
+        presentOnPaywallSkip = undefined;
       }
       presentOnPaywallUnavailable = undefined;
       break;
@@ -323,19 +391,26 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
       paywallEventHandlers = undefined;
       presentOnPaywallUnavailable = undefined;
       break;
-    case 'paywallOpenFailed':
+    case 'paywallOpenFailed': {
       paywallEventHandlers = undefined;
       const unavailableReason = event.paywallUnavailableReason;
+      const onPaywallUnavailable = presentOnPaywallUnavailable;
+      presentOnPaywallUnavailable = undefined;
+      presentOnPaywallSkip = undefined;
       if (
         event.triggerName &&
         unavailableReason !== 'alreadyPresented' &&
         unavailableReason !== 'secondTryNoMatch'
       ) {
         console.log('[Helium] paywall open failed', unavailableReason);
-        presentOnPaywallUnavailable?.();
+        try {
+          onPaywallUnavailable?.();
+        } catch (e) {
+          console.error('[Helium] onPaywallUnavailable callback failed', e);
+        }
       }
-      presentOnPaywallUnavailable = undefined;
       break;
+    }
   }
 }
 
@@ -511,6 +586,7 @@ export const resetHelium = async (options?: ResetHeliumOptions): Promise<void> =
   paywallEventHandlers = undefined;
   presentOnPaywallUnavailable = undefined;
   presentOnEntitled = undefined;
+  presentOnPaywallSkip = undefined;
   removeAllHeliumListeners();
 
   try {

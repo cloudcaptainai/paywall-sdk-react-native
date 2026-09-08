@@ -391,7 +391,7 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
       paywallEventHandlers = undefined;
       presentOnPaywallUnavailable = undefined;
       break;
-    case 'paywallOpenFailed':
+    case 'paywallOpenFailed': {
       paywallEventHandlers = undefined;
       const unavailableReason = event.paywallUnavailableReason;
       const onPaywallUnavailable = presentOnPaywallUnavailable;
@@ -410,6 +410,7 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
         }
       }
       break;
+    }
   }
 }
 

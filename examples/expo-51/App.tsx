@@ -16,6 +16,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import * as Crypto from 'expo-crypto';
 import type { HeliumPaywallEvent } from '@tryheliumai/paywall-sdk-react-native';
+import { EmbeddedPaywallScreen } from './EmbeddedPaywallScreen';
 import {
   initialize,
   presentUpsell,
@@ -73,6 +74,7 @@ export default function App() {
   const [sdkState, setSdkState] = useState<string>('(tap refresh)');
   const [purchaseStub, setPurchaseStub] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
+  const [showEmbeddedPaywall, setShowEmbeddedPaywall] = useState(false);
   const eventLog = useRef<string[]>([]);
 
   useEffect(() => {
@@ -224,6 +226,10 @@ export default function App() {
     });
   };
 
+  if (showEmbeddedPaywall) {
+    return <EmbeddedPaywallScreen trigger={trigger} onDone={() => setShowEmbeddedPaywall(false)} />;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
@@ -264,6 +270,15 @@ export default function App() {
             onPress={() => handlePresent('nonexistent_trigger_that_does_not_exist')}
           />
         </View>
+
+        {isIOS && (
+          <>
+            <Text style={styles.section}>Embedded Paywall</Text>
+            <View style={styles.buttons}>
+              <Button title="Show embedded paywall" onPress={() => setShowEmbeddedPaywall(true)} />
+            </View>
+          </>
+        )}
 
         <Text style={styles.section}>SDK State</Text>
         <Text style={styles.mono}>{sdkState}</Text>

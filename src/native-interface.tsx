@@ -17,6 +17,7 @@ import type {
   HeliumCheckoutRedirectType,
   ResetHeliumOptions,
   WebCheckoutProcessor,
+  PaywallViewType,
 } from './types';
 import type { ExperimentInfo } from './HeliumExperimentInfo.types';
 
@@ -263,23 +264,36 @@ export const presentUpsell = ({
 
 function callPaywallEventHandlers(event: HeliumPaywallEvent) {
   if (paywallEventHandlers) {
-    try {
-      dispatchTypedPaywallEventHandler(event);
-    } catch (e) {
-      console.error('[Helium] paywall event handler threw', e);
-    }
-    try {
-      paywallEventHandlers?.onAnyEvent?.(event);
-    } catch (e) {
-      console.error('[Helium] onAnyEvent handler threw', e);
-    }
+    dispatchPaywallEvent(paywallEventHandlers, event, 'presented');
   }
 }
 
-function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
+export function dispatchPaywallEvent(
+  handlers: PaywallEventHandlers,
+  event: HeliumPaywallEvent,
+  viewType: PaywallViewType
+) {
+  const taggedEvent = { ...event, viewType: event.viewType ?? viewType };
+  try {
+    dispatchTypedPaywallEventHandler(handlers, taggedEvent, viewType);
+  } catch (e) {
+    console.error('[Helium] paywall event handler threw', e);
+  }
+  try {
+    handlers.onAnyEvent?.(taggedEvent);
+  } catch (e) {
+    console.error('[Helium] onAnyEvent handler threw', e);
+  }
+}
+
+function dispatchTypedPaywallEventHandler(
+  handlers: PaywallEventHandlers,
+  event: HeliumPaywallEvent,
+  viewType: PaywallViewType
+) {
   switch (event.type) {
     case 'paywallOpen':
-      paywallEventHandlers?.onOpen?.({
+      handlers.onOpen?.({
         type: 'paywallOpen',
         triggerName: event.triggerName ?? 'unknown',
         paywallName: event.paywallName ?? 'unknown',
@@ -287,11 +301,11 @@ function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
         isSecondTry: event.isSecondTry ?? false,
         loadTimeTakenMS: event.loadTimeTakenMS,
         loadingBudgetMS: event.loadingBudgetMS,
-        viewType: 'presented',
+        viewType,
       });
       break;
     case 'paywallClose':
-      paywallEventHandlers?.onClose?.({
+      handlers.onClose?.({
         type: 'paywallClose',
         triggerName: event.triggerName ?? 'unknown',
         paywallName: event.paywallName ?? 'unknown',
@@ -299,7 +313,7 @@ function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
       });
       break;
     case 'paywallDismissed':
-      paywallEventHandlers?.onDismissed?.({
+      handlers.onDismissed?.({
         type: 'paywallDismissed',
         triggerName: event.triggerName ?? 'unknown',
         paywallName: event.paywallName ?? 'unknown',
@@ -307,7 +321,7 @@ function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
       });
       break;
     case 'purchaseSucceeded':
-      paywallEventHandlers?.onPurchaseSucceeded?.({
+      handlers.onPurchaseSucceeded?.({
         type: 'purchaseSucceeded',
         productId: event.productId ?? 'unknown',
         triggerName: event.triggerName ?? 'unknown',
@@ -317,7 +331,7 @@ function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
       });
       break;
     case 'paywallOpenFailed':
-      paywallEventHandlers?.onOpenFailed?.({
+      handlers.onOpenFailed?.({
         type: 'paywallOpenFailed',
         triggerName: event.triggerName ?? 'unknown',
         paywallName: event.paywallName ?? 'unknown',
@@ -329,7 +343,7 @@ function dispatchTypedPaywallEventHandler(event: HeliumPaywallEvent) {
       });
       break;
     case 'customPaywallAction':
-      paywallEventHandlers?.onCustomPaywallAction?.({
+      handlers.onCustomPaywallAction?.({
         type: 'customPaywallAction',
         triggerName: event.triggerName ?? 'unknown',
         paywallName: event.paywallName ?? 'unknown',
@@ -988,7 +1002,7 @@ export const resetPaddleEntitlements = (): void => {
  * - false -> "__helium_rn_bool_false__"
  * - All other values remain unchanged (null/undefined are stripped)
  */
-function convertBooleansToMarkers(
+export function convertBooleansToMarkers(
   input: Record<string, any> | undefined
 ): Record<string, any> | undefined {
   if (!input) return undefined;

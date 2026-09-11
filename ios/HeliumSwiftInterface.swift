@@ -777,34 +777,6 @@ class HeliumBridge: RCTEventEmitter {
     public func resetPaddleEntitlements() {
         Helium.shared.resetPaddleEntitlements()
     }
-
-    private func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {
-        guard let input = input else { return nil }
-
-        var result: [String: Any] = [:]
-        for (key, value) in input {
-            result[key] = convertValueMarkersToBooleans(value)
-        }
-        return result
-    }
-
-    private func convertValueMarkersToBooleans(_ value: Any) -> Any {
-        if let stringValue = value as? String {
-            switch stringValue {
-            case "__helium_rn_bool_true__":
-                return true
-            case "__helium_rn_bool_false__":
-                return false
-            default:
-                return stringValue
-            }
-        } else if let dictValue = value as? [String: Any] {
-            return convertMarkersToBooleans(dictValue) ?? [:]
-        } else if let arrayValue = value as? [Any] {
-            return arrayValue.map { convertValueMarkersToBooleans($0) }
-        }
-        return value
-    }
 }
 
 private class InternalDelegate: HeliumPaywallDelegate, HeliumDelegateReturnsTransaction {
@@ -876,11 +848,39 @@ fileprivate class DefaultPurchaseDelegate: StoreKitDelegate {
 
 /// Modifies native event dictionary fields to match expected TypeScript types.
 /// Free function to avoid capturing `self` in long-lived closures.
-private func applyEventFieldAliases(_ eventDict: inout [String: Any]) {
+func applyEventFieldAliases(_ eventDict: inout [String: Any]) {
     if eventDict["customPaywallActionName"] == nil, let actionName = eventDict["actionName"] {
         eventDict["customPaywallActionName"] = actionName
     }
     if eventDict["customPaywallActionParams"] == nil, let params = eventDict["params"] {
         eventDict["customPaywallActionParams"] = params
     }
+}
+
+func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {
+    guard let input = input else { return nil }
+
+    var result: [String: Any] = [:]
+    for (key, value) in input {
+        result[key] = convertValueMarkersToBooleans(value)
+    }
+    return result
+}
+
+private func convertValueMarkersToBooleans(_ value: Any) -> Any {
+    if let stringValue = value as? String {
+        switch stringValue {
+        case "__helium_rn_bool_true__":
+            return true
+        case "__helium_rn_bool_false__":
+            return false
+        default:
+            return stringValue
+        }
+    } else if let dictValue = value as? [String: Any] {
+        return convertMarkersToBooleans(dictValue) ?? [:]
+    } else if let arrayValue = value as? [Any] {
+        return arrayValue.map { convertValueMarkersToBooleans($0) }
+    }
+    return value
 }

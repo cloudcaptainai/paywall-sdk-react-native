@@ -4,16 +4,16 @@ PODS:
   - FBLazyVector (0.74.5)
   - fmt (9.1.0)
   - glog (0.3.5)
-  - Helium (4.5.5):
-    - Helium/Core (= 4.5.5)
-  - Helium/Core (4.5.5)
+  - Helium (4.10.0):
+    - Helium/Core (= 4.10.0)
+  - Helium/Core (4.10.0)
   - hermes-engine (0.74.5):
     - hermes-engine/Pre-built (= 0.74.5)
   - hermes-engine/Pre-built (0.74.5)
-  - PaywallSdkReactNative (3.0.23):
+  - PaywallSdkReactNative (3.1.11):
     - DoubleConversion
     - glog
-    - Helium (= 4.5.5)
+    - Helium (= 4.10.0)
     - hermes-engine
     - RCT-Folly (= 2024.01.01.00)
     - RCTRequired
@@ -1375,9 +1375,9 @@ SPEC CHECKSUMS:
   FBLazyVector: ac12dc084d1c8ec4cc4d7b3cf1b0ebda6dab85af
   fmt: 4c2741a687cc09f0634a2e2c72a838b99f1ff120
   glog: fdfdfe5479092de0c4bdbebedd9056951f092c4f
-  Helium: 7e867a9a7ebce5592a35473f2fd829fb537f8658
+  Helium: cc5d9e3474f7388787735530165e268b14ea4feb
   hermes-engine: 8c1577f3fdb849cbe7729c2e7b5abc4b845e88f8
-  PaywallSdkReactNative: 2e5ec3611fe1bb8b5562913fca4cf530e3be3b34
+  PaywallSdkReactNative: ab3f0836975f19f4bb583059d6ede0ca2cc85223
   RCT-Folly: 5dc73daec3476616d19e8a53f0156176f7b55461
   RCTDeprecation: 3afceddffa65aee666dafd6f0116f1d975db1584
   RCTRequired: ec1239bc9d8bf63e10fb92bd8b26171a9258e0c1

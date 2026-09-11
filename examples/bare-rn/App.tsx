@@ -40,6 +40,7 @@ import {
   resetHelium,
 } from '@tryheliumai/paywall-sdk-react-native';
 import defaultConfig from './helium.config';
+import {EmbeddedPaywallScreen} from './EmbeddedPaywallScreen';
 
 // `helium.config.local.ts` is gitignored and takes precedence — see helium.config.ts.
 // Metro resolves the missing optional module to an empty shim rather than
@@ -93,6 +94,7 @@ export default function App() {
   const [sdkState, setSdkState] = useState<string>('(tap refresh)');
   const [purchaseStub, setPurchaseStub] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
+  const [showEmbeddedPaywall, setShowEmbeddedPaywall] = useState(false);
   const eventLog = useRef<string[]>([]);
 
   useEffect(() => {
@@ -253,6 +255,15 @@ export default function App() {
     });
   };
 
+  if (showEmbeddedPaywall) {
+    return (
+      <EmbeddedPaywallScreen
+        trigger={trigger}
+        onDone={() => setShowEmbeddedPaywall(false)}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
@@ -305,6 +316,18 @@ export default function App() {
             }
           />
         </View>
+
+        {isIOS && (
+          <>
+            <Text style={styles.section}>Embedded Paywall</Text>
+            <View style={styles.buttons}>
+              <Button
+                title="Show embedded paywall"
+                onPress={() => setShowEmbeddedPaywall(true)}
+              />
+            </View>
+          </>
+        )}
 
         <Text style={styles.section}>SDK State</Text>
         <Text style={styles.mono}>{sdkState}</Text>

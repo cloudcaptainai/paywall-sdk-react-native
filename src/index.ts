@@ -1,5 +1,6 @@
 export * from './types';
 export * from './HeliumExperimentInfo.types';
+export { HeliumPaywallView } from './HeliumPaywallView';
 
 export {
   initialize,

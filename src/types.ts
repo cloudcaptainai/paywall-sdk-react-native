@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+
 export type HeliumEnvironment = 'sandbox' | 'production';
 
 export type HeliumTransactionStatus = 'purchased' | 'failed' | 'cancelled' | 'pending' | 'restored';
@@ -111,6 +114,8 @@ export type HeliumPaywallLoadingConfig = {
   loadingBudget?: number;
 };
 
+export type PaywallViewType = 'presented' | 'embedded' | 'triggered';
+
 // Event handler types for per-presentation event handling
 export interface PaywallEventHandlers {
   onOpen?: (event: PaywallOpenEvent) => void;
@@ -132,7 +137,7 @@ export interface PaywallOpenEvent {
   isSecondTry: boolean;
   loadTimeTakenMS?: number;
   loadingBudgetMS?: number;
-  viewType?: 'presented' | 'embedded' | 'triggered';
+  viewType?: PaywallViewType;
 }
 
 export interface PaywallCloseEvent {
@@ -239,6 +244,7 @@ export type HeliumPaywallEvent = {
   bundleDownloadTimeMS?: number;
   dismissAll?: boolean;
   isSecondTry?: boolean;
+  viewType?: PaywallViewType;
   error?: string;
   /**
    * @deprecated Use `error` instead.
@@ -331,6 +337,34 @@ export type PresentUpsellParams = {
    * See https://docs.tryhelium.com/guides/fallback-bundle */
   onPaywallUnavailable?: () => void;
 };
+
+/**
+ * Props for `HeliumPaywallView`.
+ *
+ * The paywall loads once when the view mounts; later changes to `triggerName` or
+ * `customPaywallTraits` are ignored. Mount it with a stable trigger and use mount/unmount to show
+ * or hide it, since each mount is a paywall impression. Avoid remounting with a different `key` to
+ * reconfigure a live placement, since the extra impressions can skew analytics.
+ */
+export interface HeliumPaywallViewProps {
+  /** The trigger configured in the Helium dashboard (https://app.tryhelium.com/workflows). */
+  triggerName: string;
+  /** Optional. Handlers for this view's paywall lifecycle events. Scoped to this view; independent of any
+   * `presentUpsell` handlers. */
+  eventHandlers?: PaywallEventHandlers;
+  /** Optional. Called with the entitling event upon purchase success (`purchaseSucceeded`), purchase restore
+   * (`purchaseRestored`), or a purchase attempt resolving to an existing entitlement (`purchaseAlreadyEntitled`).
+   * Together with `eventHandlers.onDismissed`, the place to hide the view. */
+  onEntitled?: (event?: PaywallEntitledEvent) => void;
+  /** Optional. Custom traits to send to the paywall. User traits are automatically included as paywall traits,
+   * as is "trigger"; on duplicate keys the value from `customPaywallTraits` wins. */
+  customPaywallTraits?: Record<string, any>;
+  /** Rendered in place of the paywall when it cannot be shown due to a targeting holdout or if the desired
+   * paywall and fallback paywall did not show due to an unexpected error. */
+  paywallNotShownReplacement: ReactNode;
+  /** Layout for the view. The native paywall fills its frame, so give it a size (for example `flex: 1`). */
+  style?: StyleProp<ViewStyle>;
+}
 
 // --- Main Helium Configuration ---
 /**

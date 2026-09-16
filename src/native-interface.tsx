@@ -30,6 +30,23 @@ try {
   // package.json can't be loaded, accept that we won't get wrapper sdk version
 }
 
+type ExpoFileSystemModule = {
+  documentDirectory: string | null;
+  writeAsStringAsync: (fileUri: string, contents: string) => Promise<void>;
+};
+
+const loadExpoFileSystem = (): ExpoFileSystemModule | undefined => {
+  try {
+    // Expo 49–51 uses the legacy `expo-file-system` API. Expo 52+ is handled
+    // by the separate Expo-modules SDK, so we don't branch on the new API here.
+    return require('expo-file-system');
+  } catch {
+    return undefined;
+  }
+};
+
+const ExpoFileSystem = loadExpoFileSystem();
+
 const heliumEventEmitter = new NativeEventEmitter(HeliumBridge);
 
 let isInitialized = false;
@@ -165,23 +182,34 @@ function setupEventListeners(config: HeliumConfig) {
   });
 }
 
-const buildNativeConfig = async (config: HeliumConfig): Promise<NativeHeliumConfig> => {
-  let fallbackBundleUrlString: string | undefined;
-  let fallbackBundleString: string | undefined;
-  if (config.fallbackBundle) {
-    try {
-      // Expo 49–51 uses the legacy `expo-file-system` API. Expo 52+ is handled
-      // by the separate Expo-modules SDK, so we don't branch on the new API here.
-      const ExpoFileSystem = require('expo-file-system');
+type FallbackBundleConfig = Pick<
+  NativeHeliumConfig,
+  'fallbackBundleUrlString' | 'fallbackBundleString'
+>;
 
-      const jsonContent = JSON.stringify(config.fallbackBundle);
-      fallbackBundleUrlString = `${ExpoFileSystem.documentDirectory}helium-fallback.json`;
-      await ExpoFileSystem.writeAsStringAsync(fallbackBundleUrlString, jsonContent);
-    } catch (error) {
-      console.log('[Helium] expo-file-system not available, passing fallback bundle as string.');
-      fallbackBundleString = JSON.stringify(config.fallbackBundle);
-    }
+const resolveFallbackBundle = async (fallbackBundle: object): Promise<FallbackBundleConfig> => {
+  const fallbackBundleString = JSON.stringify(fallbackBundle);
+  if (!ExpoFileSystem) {
+    console.log('[Helium] expo-file-system not available, passing fallback bundle as string.');
+    return { fallbackBundleString };
   }
+  const fallbackBundleUrlString = `${ExpoFileSystem.documentDirectory}helium-fallback.json`;
+  try {
+    await ExpoFileSystem.writeAsStringAsync(fallbackBundleUrlString, fallbackBundleString);
+    return { fallbackBundleUrlString };
+  } catch (error) {
+    console.log(
+      '[Helium] Failed to write fallback bundle to disk, passing fallback bundle as string.',
+      error
+    );
+    return { fallbackBundleString };
+  }
+};
+
+const buildNativeConfig = async (config: HeliumConfig): Promise<NativeHeliumConfig> => {
+  const fallback: FallbackBundleConfig = config.fallbackBundle
+    ? await resolveFallbackBundle(config.fallbackBundle)
+    : {};
 
   return {
     apiKey: config.apiKey,
@@ -189,8 +217,8 @@ const buildNativeConfig = async (config: HeliumConfig): Promise<NativeHeliumConf
     customAPIEndpoint: config.customAPIEndpoint,
     customUserTraits: convertBooleansToMarkers(config.customUserTraits),
     revenueCatAppUserId: config.revenueCatAppUserId,
-    fallbackBundleUrlString,
-    fallbackBundleString,
+    fallbackBundleUrlString: fallback.fallbackBundleUrlString,
+    fallbackBundleString: fallback.fallbackBundleString,
     paywallLoadingConfig: convertBooleansToMarkers(config.paywallLoadingConfig),
     useDefaultDelegate: !config.purchaseConfig,
     environment: config.environment,

@@ -595,3 +595,88 @@ describe('presentUpsell skip and entitled handling', () => {
     );
   });
 });
+
+describe('fallback bundle', () => {
+  const fallbackBundle = { paywalls: [{ id: 'fallback' }] };
+  const fallbackBundleString = JSON.stringify(fallbackBundle);
+  let consoleLog: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLog.mockRestore();
+    jest.dontMock('expo-file-system');
+  });
+
+  const initializeIsolated = async () => {
+    let isolatedBridge: typeof bridge;
+    let initialized: Promise<void> | undefined;
+    jest.isolateModules(() => {
+      isolatedBridge = require('react-native').NativeModules.HeliumBridge;
+      const isolatedHelium: typeof Helium = require('../index');
+      initialized = isolatedHelium.initialize({ apiKey: 'test-key', fallbackBundle });
+    });
+    await initialized;
+    return isolatedBridge!;
+  };
+
+  it('passes the bundle as a string when expo-file-system cannot be required', async () => {
+    jest.doMock(
+      'expo-file-system',
+      () => {
+        throw new Error('Requiring unknown module "undefined".');
+      },
+      { virtual: true }
+    );
+
+    const isolatedBridge = await initializeIsolated();
+
+    expect(isolatedBridge.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackBundleString, fallbackBundleUrlString: undefined })
+    );
+    expect(consoleLog).toHaveBeenCalledWith(
+      '[Helium] expo-file-system not available, passing fallback bundle as string.'
+    );
+  });
+
+  it('writes the bundle to disk and passes its URL when expo-file-system is available', async () => {
+    const writeAsStringAsync = jest.fn().mockResolvedValue(undefined);
+    jest.doMock(
+      'expo-file-system',
+      () => ({ documentDirectory: 'file:///documents/', writeAsStringAsync }),
+      { virtual: true }
+    );
+
+    const isolatedBridge = await initializeIsolated();
+
+    expect(writeAsStringAsync).toHaveBeenCalledWith(
+      'file:///documents/helium-fallback.json',
+      fallbackBundleString
+    );
+    expect(isolatedBridge.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fallbackBundleUrlString: 'file:///documents/helium-fallback.json',
+        fallbackBundleString: undefined,
+      })
+    );
+  });
+
+  it('passes the bundle as a string when writing it to disk fails', async () => {
+    jest.doMock(
+      'expo-file-system',
+      () => ({
+        documentDirectory: 'file:///documents/',
+        writeAsStringAsync: jest.fn().mockRejectedValue(new Error('disk full')),
+      }),
+      { virtual: true }
+    );
+
+    const isolatedBridge = await initializeIsolated();
+
+    expect(isolatedBridge.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackBundleString, fallbackBundleUrlString: undefined })
+    );
+  });
+});

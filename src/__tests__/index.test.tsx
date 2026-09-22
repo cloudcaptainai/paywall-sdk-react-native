@@ -641,6 +641,20 @@ describe('fallback bundle', () => {
     );
   });
 
+  it('passes the bundle as a string when expo-file-system has no document directory', async () => {
+    const writeAsStringAsync = jest.fn();
+    jest.doMock('expo-file-system', () => ({ documentDirectory: null, writeAsStringAsync }), {
+      virtual: true,
+    });
+
+    const isolatedBridge = await initializeIsolated();
+
+    expect(writeAsStringAsync).not.toHaveBeenCalled();
+    expect(isolatedBridge.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackBundleString, fallbackBundleUrlString: undefined })
+    );
+  });
+
   it('writes the bundle to disk and passes its URL when expo-file-system is available', async () => {
     const writeAsStringAsync = jest.fn().mockResolvedValue(undefined);
     jest.doMock(

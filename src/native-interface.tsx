@@ -193,7 +193,14 @@ const resolveFallbackBundle = async (fallbackBundle: object): Promise<FallbackBu
     console.log('[Helium] expo-file-system not available, passing fallback bundle as string.');
     return { fallbackBundleString };
   }
-  const fallbackBundleUrlString = `${ExpoFileSystem.documentDirectory}helium-fallback.json`;
+  const { documentDirectory } = ExpoFileSystem;
+  if (!documentDirectory) {
+    console.log(
+      '[Helium] expo-file-system has no document directory, passing fallback bundle as string.'
+    );
+    return { fallbackBundleString };
+  }
+  const fallbackBundleUrlString = `${documentDirectory}helium-fallback.json`;
   try {
     await ExpoFileSystem.writeAsStringAsync(fallbackBundleUrlString, fallbackBundleString);
     return { fallbackBundleUrlString };

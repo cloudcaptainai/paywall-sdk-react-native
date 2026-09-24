@@ -458,13 +458,11 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
       const onPaywallUnavailable = presentOnPaywallUnavailable;
       presentOnPaywallUnavailable = undefined;
       presentOnPaywallSkip = undefined;
-      if (event.triggerName) {
-        console.log('[Helium] paywall open failed', unavailableReason);
-        try {
-          onPaywallUnavailable?.();
-        } catch (e) {
-          console.error('[Helium] onPaywallUnavailable callback failed', e);
-        }
+      console.log('[Helium] paywall open failed', unavailableReason);
+      try {
+        onPaywallUnavailable?.();
+      } catch (e) {
+        console.error('[Helium] onPaywallUnavailable callback failed', e);
       }
       break;
     }

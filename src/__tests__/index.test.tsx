@@ -962,6 +962,82 @@ describe('presentation routing', () => {
     expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
   });
 
+  it('does not report a rejected repeat present as unavailable', () => {
+    const first = jest.fn();
+    const rejected = jest.fn();
+    const rejectedUnavailable = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: first } });
+    Helium.presentUpsell({
+      triggerName: TRIGGER,
+      eventHandlers: { onAnyEvent: rejected },
+      onPaywallUnavailable: rejectedUnavailable,
+    });
+    const firstId = idOfCall(0);
+    const rejectedId = idOfCall(1);
+    emitNativeEvent('onPaywallUnavailableEvent', {
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
+      presentationId: rejectedId,
+    });
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
+    });
+    perCall(firstId, 'paywallOpen');
+    perCall(rejectedId, 'paywallOpen');
+
+    expect(rejectedUnavailable).not.toHaveBeenCalled();
+    expect(eventTypes(first)).toEqual(['paywallOpen']);
+    expect(rejected).not.toHaveBeenCalled();
+  });
+
+  it('ignores a second-try miss reported as unavailable', () => {
+    const { id, onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+
+    emitNativeEvent('onPaywallUnavailableEvent', {
+      type: 'paywallOpenFailed',
+      triggerName: `${TRIGGER}_second_try`,
+      paywallUnavailableReason: 'secondTryNoMatch',
+      presentationId: id,
+    });
+    perCall(id, 'purchasePressed');
+
+    expect(onPaywallUnavailable).not.toHaveBeenCalled();
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'purchasePressed']);
+  });
+
+  it('leaves a loading present alone when a global rejection names another trigger', () => {
+    const onAnyEvent = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent } });
+    const id = idOfCall(0);
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: PREVIEW_TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
+    });
+    perCall(id, 'paywallOpen');
+
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen']);
+  });
+
+  it('drops an event without a presentation id when no presentation can take it', () => {
+    const { id, onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+
+    emitNativeEvent('onPaywallUnavailableEvent', {
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'paywallsNotDownloaded',
+    });
+    perCall(id, 'purchasePressed');
+
+    expect(onPaywallUnavailable).not.toHaveBeenCalled();
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'purchasePressed']);
+  });
+
   it('clears every presentation on reset', async () => {
     const { id, onAnyEvent } = presentAndOpen();
 

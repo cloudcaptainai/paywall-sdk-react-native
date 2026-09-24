@@ -559,7 +559,9 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
     return;
   }
   const rejected =
-    latestPresentation((candidate) => candidate.rejected) ??
+    latestPresentation(
+      (candidate) => candidate.rejected && candidate.triggerName === event.triggerName
+    ) ??
     latestPresentation(
       (candidate) =>
         !candidate.opened && !candidate.closed && candidate.triggerName === event.triggerName

@@ -962,6 +962,37 @@ describe('presentation routing', () => {
     expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
   });
 
+  it('resolves interleaved rejections by trigger', () => {
+    const first = jest.fn();
+    const second = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: first } });
+    Helium.presentUpsell({ triggerName: OTHER_TRIGGER, eventHandlers: { onAnyEvent: second } });
+    const firstId = idOfCall(0);
+    const secondId = idOfCall(1);
+    perCall(firstId, 'paywallOpenFailed', TRIGGER, {
+      paywallUnavailableReason: 'alreadyPresented',
+    });
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: OTHER_TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
+    });
+    perCall(firstId, 'paywallOpenFailed', TRIGGER, {
+      paywallUnavailableReason: 'alreadyPresented',
+    });
+    perCall(secondId, 'paywallOpen', OTHER_TRIGGER);
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
+    });
+    perCall(firstId, 'paywallOpen');
+
+    expect(eventTypes(first)).toEqual(['paywallOpenFailed', 'paywallOpenFailed']);
+    expect(second).not.toHaveBeenCalled();
+  });
+
   it('does not report a rejected repeat present as unavailable', () => {
     const first = jest.fn();
     const rejected = jest.fn();

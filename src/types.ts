@@ -179,6 +179,14 @@ export interface PaywallSkippedEvent {
   type: 'paywallSkipped';
   triggerName: string;
   skipReason: PaywallSkippedReason;
+  presentationId?: string;
+}
+
+export interface PaywallUnavailableEvent {
+  type: 'paywallOpenFailed';
+  triggerName?: string;
+  paywallUnavailableReason?: string;
+  presentationId?: string;
 }
 
 export interface CustomPaywallActionEvent {
@@ -191,6 +199,7 @@ export interface CustomPaywallActionEvent {
 }
 
 export type HeliumPaywallEvent = {
+  presentationId?: string;
   type:
     | 'paywallOpen'
     | 'paywallClose'

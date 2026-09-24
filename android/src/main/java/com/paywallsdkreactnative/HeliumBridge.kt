@@ -174,6 +174,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         const val EVENT_HELIUM_LOG = "onHeliumLogEvent"
         const val EVENT_ENTITLED = "onEntitledEvent"
         const val EVENT_PAYWALL_SKIP = "onPaywallSkipEvent"
+        const val EVENT_PAYWALL_UNAVAILABLE = "onPaywallUnavailableEvent"
 
         private const val TRUE_MARKER = "__helium_rn_bool_true__"
         private const val FALSE_MARKER = "__helium_rn_bool_false__"
@@ -354,7 +355,8 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         trigger: String,
         customPaywallTraits: ReadableMap?,
         dontShowIfAlreadyEntitled: Boolean,
-        disableSystemBackNavigation: Boolean
+        disableSystemBackNavigation: Boolean,
+        presentationId: String?
     ) {
         BridgeStateManager.currentBridge = this
         BridgeStateManager.flushEvents(this)
@@ -366,6 +368,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                 runCatching {
                     val eventMap = HeliumEventDictionaryMapper.toDictionary(event).toMutableMap()
                     applyEventFieldAliases(eventMap)
+                    presentationId?.let { eventMap["presentationId"] = it }
                     BridgeStateManager.safeSendEvent(EVENT_PAYWALL_HANDLERS, eventMap)
                 }.onFailure { Log.w(TAG, "Failed to forward paywall event", it) }
             },
@@ -383,6 +386,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                 runCatching {
                     val entitledEventMap = HeliumEventDictionaryMapper.toDictionary(entitledEvent.event).toMutableMap()
                     applyEventFieldAliases(entitledEventMap)
+                    presentationId?.let { entitledEventMap["presentationId"] = it }
                     BridgeStateManager.safeSendEvent(EVENT_ENTITLED, entitledEventMap)
                 }.onFailure { Log.w(TAG, "Failed to forward entitled event", it) }
             },
@@ -392,17 +396,25 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                     val skipReason = when (reason) {
                         PaywallNotShownReason.TargetingHoldout -> PaywallSkippedReason.TargetingHoldout
                         PaywallNotShownReason.AlreadyEntitled -> PaywallSkippedReason.AlreadyEntitled
-                        is PaywallNotShownReason.Error -> null
+                        is PaywallNotShownReason.Error -> {
+                            val eventMap = mutableMapOf<String, Any>(
+                                "type" to "paywallOpenFailed",
+                                "triggerName" to trigger,
+                                "paywallUnavailableReason" to (reason.unavailableReason?.rawValue ?: "unknown")
+                            )
+                            presentationId?.let { eventMap["presentationId"] = it }
+                            BridgeStateManager.safeSendEvent(EVENT_PAYWALL_UNAVAILABLE, eventMap)
+                            null
+                        }
                     }
                     if (skipReason != null) {
-                        BridgeStateManager.safeSendEvent(
-                            EVENT_PAYWALL_SKIP,
-                            mapOf(
-                                "type" to "paywallSkipped",
-                                "triggerName" to trigger,
-                                "skipReason" to skipReason.rawValue
-                            )
+                        val eventMap = mutableMapOf<String, Any>(
+                            "type" to "paywallSkipped",
+                            "triggerName" to trigger,
+                            "skipReason" to skipReason.rawValue
                         )
+                        presentationId?.let { eventMap["presentationId"] = it }
+                        BridgeStateManager.safeSendEvent(EVENT_PAYWALL_SKIP, eventMap)
                     }
                 }.onFailure { Log.w(TAG, "Failed to forward paywall skip", it) }
             }

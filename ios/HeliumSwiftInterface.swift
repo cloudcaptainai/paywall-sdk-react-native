@@ -179,6 +179,7 @@ class HeliumBridge: RCTEventEmitter {
             "onHeliumLogEvent",
             "onEntitledEvent",
             "onPaywallSkipEvent",
+            "onPaywallUnavailableEvent",
         ]
     }
 
@@ -356,7 +357,8 @@ class HeliumBridge: RCTEventEmitter {
         _ trigger: String,
         customPaywallTraits: [String: Any]?,
         dontShowIfAlreadyEntitled: Bool,
-        androidDisableSystemBackNavigation: Bool
+        androidDisableSystemBackNavigation: Bool,
+        presentationId: String?
     ) {
         PurchaseStateManager.shared.currentBridge = self
         PurchaseStateManager.shared.flushEvents(bridge: self)
@@ -376,12 +378,18 @@ class HeliumBridge: RCTEventEmitter {
                 onAnyEvent: { event in
                     var eventDict = event.toDictionary()
                     applyEventFieldAliases(&eventDict)
+                    if let presentationId {
+                        eventDict["presentationId"] = presentationId
+                    }
                     PurchaseStateManager.shared.safeSendEvent(eventName: "paywallEventHandlers", eventData: eventDict)
                 }
             ),
             onEntitled: { entitledEvent in
                 var eventDict = entitledEvent.event.toDictionary()
                 applyEventFieldAliases(&eventDict)
+                if let presentationId {
+                    eventDict["presentationId"] = presentationId
+                }
                 PurchaseStateManager.shared.safeSendEvent(eventName: "onEntitledEvent", eventData: eventDict)
             }
         ) { paywallNotShownReason in
@@ -391,17 +399,27 @@ class HeliumBridge: RCTEventEmitter {
                 skipReason = .targetingHoldout
             case .alreadyEntitled:
                 skipReason = .alreadyEntitled
-            case .error:
+            case .error(let unavailableReason):
+                var eventData: [String: Any] = [
+                    "type": "paywallOpenFailed",
+                    "triggerName": trigger,
+                    "paywallUnavailableReason": unavailableReason.rawValue,
+                ]
+                if let presentationId {
+                    eventData["presentationId"] = presentationId
+                }
+                PurchaseStateManager.shared.safeSendEvent(eventName: "onPaywallUnavailableEvent", eventData: eventData)
                 return
             }
-            PurchaseStateManager.shared.safeSendEvent(
-                eventName: "onPaywallSkipEvent",
-                eventData: [
-                    "type": "paywallSkipped",
-                    "triggerName": trigger,
-                    "skipReason": skipReason.rawValue,
-                ]
-            )
+            var eventData: [String: Any] = [
+                "type": "paywallSkipped",
+                "triggerName": trigger,
+                "skipReason": skipReason.rawValue,
+            ]
+            if let presentationId {
+                eventData["presentationId"] = presentationId
+            }
+            PurchaseStateManager.shared.safeSendEvent(eventName: "onPaywallSkipEvent", eventData: eventData)
         }
     }
 

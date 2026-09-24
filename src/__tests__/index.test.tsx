@@ -71,6 +71,9 @@ const emitNativeEvent = (name: string, payload?: unknown) => {
   }
 };
 
+/** The id the JS layer handed to the native bridge for the most recent presentUpsell call. */
+const lastPresentationId = (): string => bridge.presentUpsell.mock.calls.at(-1)?.[4];
+
 describe('public API surface', () => {
   const expectedFunctions = [
     'initialize',
@@ -154,7 +157,13 @@ describe('heliumTesting', () => {
 describe('presentUpsell', () => {
   it('defaults omitted boolean args (bridge BOOLs are non-nullable)', () => {
     Helium.presentUpsell({ triggerName: 'my_trigger' });
-    expect(bridge.presentUpsell).toHaveBeenCalledWith('my_trigger', undefined, false, false);
+    expect(bridge.presentUpsell).toHaveBeenCalledWith(
+      'my_trigger',
+      undefined,
+      false,
+      false,
+      expect.any(String)
+    );
   });
 });
 
@@ -458,10 +467,11 @@ describe('presentUpsell skip and entitled handling', () => {
     });
     Helium.presentUpsell({ triggerName: 'first', onPaywallUnavailable });
 
-    emitNativeEvent('onHeliumPaywallEvent', {
+    emitNativeEvent('onPaywallUnavailableEvent', {
       type: 'paywallOpenFailed',
       triggerName: 'first',
       paywallUnavailableReason: 'notInitialized',
+      presentationId: lastPresentationId(),
     });
     emitNativeEvent('onPaywallSkipEvent', { ...holdoutSkip, triggerName: 'second' });
 
@@ -478,10 +488,11 @@ describe('presentUpsell skip and entitled handling', () => {
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallUnavailable });
 
     expect(() =>
-      emitNativeEvent('onHeliumPaywallEvent', {
+      emitNativeEvent('onPaywallUnavailableEvent', {
         type: 'paywallOpenFailed',
         triggerName: 'my_trigger',
         paywallUnavailableReason: 'notInitialized',
+        presentationId: lastPresentationId(),
       })
     ).not.toThrow();
 
@@ -497,10 +508,11 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onHeliumPaywallEvent', {
+    emitNativeEvent('paywallEventHandlers', {
       type: 'paywallClose',
       triggerName: 'my_trigger',
       isSecondTry: false,
+      presentationId: lastPresentationId(),
     });
     emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
 
@@ -511,10 +523,11 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onHeliumPaywallEvent', {
+    emitNativeEvent('paywallEventHandlers', {
       type: 'paywallClose',
       triggerName: 'my_trigger',
       isSecondTry: true,
+      presentationId: lastPresentationId(),
     });
     emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
 
@@ -525,22 +538,23 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onHeliumPaywallEvent', {
+    emitNativeEvent('onPaywallUnavailableEvent', {
       type: 'paywallOpenFailed',
       triggerName: 'my_trigger',
       paywallUnavailableReason: 'bundleFetch404',
+      presentationId: lastPresentationId(),
     });
     emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
 
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
 
-  it('drops the previous handler when a later presentUpsell omits onPaywallSkip', () => {
+  it('routes a skip to the present that registered the handler', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
     Helium.presentUpsell({ triggerName: 'my_trigger' });
 
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', { ...holdoutSkip, presentationId: lastPresentationId() });
 
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
@@ -695,11 +709,24 @@ describe('fallback bundle', () => {
   });
 });
 
-describe('presentUpsell handler retention', () => {
+describe('presentation routing', () => {
   const TRIGGER = 'go_online';
+  const OTHER_TRIGGER = 'go_offline';
   const PREVIEW_TRIGGER = 'helium_preview_trigger';
-  const perCall = (type: string, triggerName = TRIGGER) =>
-    emitNativeEvent('paywallEventHandlers', { type, triggerName, paywallName: 'test-paywall' });
+  const idOfCall = (index: number): string => bridge.presentUpsell.mock.calls[index][4];
+  const perCall = (
+    presentationId: string,
+    type: string,
+    triggerName = TRIGGER,
+    extra: Record<string, unknown> = {}
+  ) =>
+    emitNativeEvent('paywallEventHandlers', {
+      type,
+      triggerName,
+      paywallName: 'test-paywall',
+      presentationId,
+      ...extra,
+    });
   const emitGlobal = (event: Record<string, unknown>) =>
     emitNativeEvent('onHeliumPaywallEvent', { paywallName: 'test-paywall', ...event });
   const eventTypes = (handler: jest.Mock) => handler.mock.calls.map(([event]) => event.type);
@@ -708,6 +735,7 @@ describe('presentUpsell handler retention', () => {
   beforeEach(async () => {
     await Helium.resetHelium();
     await Helium.initialize({ apiKey: 'test-key' });
+    bridge.presentUpsell.mockClear();
     consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
   });
 
@@ -723,26 +751,31 @@ describe('presentUpsell handler retention', () => {
       eventHandlers: { onAnyEvent },
       onPaywallUnavailable,
     });
-    perCall('paywallOpen');
-    return { onAnyEvent, onPaywallUnavailable };
+    const id = idOfCall(0);
+    perCall(id, 'paywallOpen');
+    return { id, onAnyEvent, onPaywallUnavailable };
   };
 
-  it('keeps the on-screen handlers when a repeat present is rejected as already presented', () => {
-    const { onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+  it('keeps the on-screen presentation when a repeat present is rejected as already presented', () => {
+    const { id, onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+    const rejected = jest.fn();
+    const rejectedUnavailable = jest.fn();
 
     Helium.presentUpsell({
       triggerName: TRIGGER,
-      eventHandlers: { onAnyEvent },
-      onPaywallUnavailable,
+      eventHandlers: { onAnyEvent: rejected },
+      onPaywallUnavailable: rejectedUnavailable,
     });
+    const rejectedId = idOfCall(1);
     emitGlobal({
       type: 'paywallOpenFailed',
       triggerName: TRIGGER,
       paywallUnavailableReason: 'alreadyPresented',
     });
-    perCall('purchasePressed');
-    perCall('purchaseCancelled');
-    perCall('purchaseRestoreFailed');
+    perCall(id, 'purchasePressed');
+    perCall(id, 'purchaseCancelled');
+    perCall(id, 'purchaseRestoreFailed');
+    perCall(rejectedId, 'purchasePressed');
 
     expect(eventTypes(onAnyEvent)).toEqual([
       'paywallOpen',
@@ -750,63 +783,191 @@ describe('presentUpsell handler retention', () => {
       'purchaseCancelled',
       'purchaseRestoreFailed',
     ]);
+    expect(rejected).not.toHaveBeenCalled();
+    expect(rejectedUnavailable).not.toHaveBeenCalled();
     expect(onPaywallUnavailable).not.toHaveBeenCalled();
   });
 
-  it('keeps the on-screen handlers when a second try has no match', () => {
-    const { onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+  it('drops the rejected present when native reports the rejection on its own channel', () => {
+    const { id, onAnyEvent } = presentAndOpen();
+    const rejected = jest.fn();
 
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: rejected } });
+    const rejectedId = idOfCall(1);
+    perCall(rejectedId, 'paywallOpenFailed', TRIGGER, {
+      paywallUnavailableReason: 'alreadyPresented',
+    });
     emitGlobal({
       type: 'paywallOpenFailed',
-      triggerName: `${TRIGGER}_second_try`,
-      paywallUnavailableReason: 'secondTryNoMatch',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
     });
-    perCall('purchasePressed');
+    perCall(id, 'purchasePressed');
+    perCall(rejectedId, 'purchasePressed');
 
     expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'purchasePressed']);
-    expect(onPaywallUnavailable).not.toHaveBeenCalled();
+    expect(eventTypes(rejected)).toEqual(['paywallOpenFailed']);
   });
 
-  it('delivers preview paywall events and ignores the preview lifecycle for cleanup', () => {
-    const { onAnyEvent } = presentAndOpen();
+  it('keeps the first present when a same-trigger repeat lands before it opens', () => {
+    const first = jest.fn();
+    const rejected = jest.fn();
 
-    perCall('paywallOpen', PREVIEW_TRIGGER);
-    perCall('purchaseRestoreFailed', PREVIEW_TRIGGER);
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: first } });
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: rejected } });
+    const firstId = idOfCall(0);
+    const rejectedId = idOfCall(1);
+    perCall(firstId, 'paywallOpen');
     emitGlobal({
       type: 'paywallOpenFailed',
-      triggerName: PREVIEW_TRIGGER,
-      paywallUnavailableReason: 'paywallsNotDownloaded',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
     });
-    emitGlobal({ type: 'paywallClose', triggerName: PREVIEW_TRIGGER, isSecondTry: false });
-    perCall('purchasePressed');
+    perCall(firstId, 'purchasePressed');
+    perCall(rejectedId, 'purchasePressed');
+
+    expect(eventTypes(first)).toEqual(['paywallOpen', 'purchasePressed']);
+    expect(rejected).not.toHaveBeenCalled();
+  });
+
+  it('delivers preview events to the host handlers without ending the presentation', () => {
+    const { id, onAnyEvent } = presentAndOpen();
+
+    perCall(id, 'paywallOpen', PREVIEW_TRIGGER);
+    perCall(id, 'purchaseRestoreFailed', PREVIEW_TRIGGER);
+    perCall(id, 'paywallClose', PREVIEW_TRIGGER, { isSecondTry: false });
+    perCall(id, 'purchasePressed');
 
     expect(eventTypes(onAnyEvent)).toEqual([
       'paywallOpen',
       'paywallOpen',
       'purchaseRestoreFailed',
+      'paywallClose',
       'purchasePressed',
     ]);
   });
 
-  it('still clears the handlers and reports a real open failure', () => {
-    const { onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+  it('routes a skip to the present that registered it', () => {
+    const firstSkip = jest.fn();
+    const second = jest.fn();
+    const secondSkip = jest.fn();
 
-    emitGlobal({
+    Helium.presentUpsell({ triggerName: TRIGGER, onPaywallSkip: firstSkip });
+    Helium.presentUpsell({
+      triggerName: OTHER_TRIGGER,
+      eventHandlers: { onAnyEvent: second },
+      onPaywallSkip: secondSkip,
+    });
+    emitNativeEvent('onPaywallSkipEvent', {
+      type: 'paywallSkipped',
+      triggerName: TRIGGER,
+      skipReason: 'targetingHoldout',
+      presentationId: idOfCall(0),
+    });
+    perCall(idOfCall(1), 'paywallOpen', OTHER_TRIGGER);
+    perCall(idOfCall(1), 'purchasePressed', OTHER_TRIGGER);
+
+    expect(firstSkip).toHaveBeenCalledTimes(1);
+    expect(secondSkip).not.toHaveBeenCalled();
+    expect(eventTypes(second)).toEqual(['paywallOpen', 'purchasePressed']);
+  });
+
+  it("routes an already-entitled skip to that present's onEntitled", () => {
+    const firstEntitled = jest.fn();
+    const secondEntitled = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, onEntitled: firstEntitled });
+    Helium.presentUpsell({ triggerName: OTHER_TRIGGER, onEntitled: secondEntitled });
+    emitNativeEvent('onEntitledEvent', {
+      type: 'paywallSkipped',
+      triggerName: TRIGGER,
+      skipReason: 'alreadyEntitled',
+      presentationId: idOfCall(0),
+    });
+
+    expect(firstEntitled).toHaveBeenCalledTimes(1);
+    expect(secondEntitled).not.toHaveBeenCalled();
+  });
+
+  it('routes an open failure to the present that failed', () => {
+    const firstUnavailable = jest.fn();
+    const second = jest.fn();
+    const secondUnavailable = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, onPaywallUnavailable: firstUnavailable });
+    Helium.presentUpsell({
+      triggerName: OTHER_TRIGGER,
+      eventHandlers: { onAnyEvent: second },
+      onPaywallUnavailable: secondUnavailable,
+    });
+    emitNativeEvent('onPaywallUnavailableEvent', {
       type: 'paywallOpenFailed',
       triggerName: TRIGGER,
       paywallUnavailableReason: 'paywallsNotDownloaded',
+      presentationId: idOfCall(0),
     });
-    perCall('purchasePressed');
+    perCall(idOfCall(1), 'paywallOpen', OTHER_TRIGGER);
+
+    expect(firstUnavailable).toHaveBeenCalledTimes(1);
+    expect(secondUnavailable).not.toHaveBeenCalled();
+    expect(eventTypes(second)).toEqual(['paywallOpen']);
+  });
+
+  it('ends a presentation on its own close but still delivers a later entitled event', () => {
+    const onAnyEvent = jest.fn();
+    const onEntitled = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent }, onEntitled });
+    const id = idOfCall(0);
+    perCall(id, 'paywallOpen');
+    perCall(id, 'paywallClose', TRIGGER, { isSecondTry: false });
+    perCall(id, 'purchasePressed');
+    emitNativeEvent('onEntitledEvent', {
+      type: 'purchaseSucceeded',
+      triggerName: TRIGGER,
+      presentationId: id,
+    });
+    emitNativeEvent('onEntitledEvent', {
+      type: 'purchaseSucceeded',
+      triggerName: TRIGGER,
+      presentationId: id,
+    });
+
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'paywallClose']);
+    expect(onEntitled).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores close and skipped events on the global channel', () => {
+    const { id, onAnyEvent } = presentAndOpen();
+
+    emitGlobal({ type: 'paywallClose', triggerName: TRIGGER, isSecondTry: false });
+    emitGlobal({ type: 'paywallSkipped', triggerName: TRIGGER, skipReason: 'targetingHoldout' });
+    perCall(id, 'purchasePressed');
+
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'purchasePressed']);
+  });
+
+  it('still clears the handlers and reports a real open failure', () => {
+    const { id, onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+
+    emitNativeEvent('onPaywallUnavailableEvent', {
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'webviewRenderFail',
+      presentationId: id,
+    });
+    perCall(id, 'purchasePressed');
 
     expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen']);
     expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
   });
 
-  it('still clears the handlers when the paywall closes', () => {
-    const { onAnyEvent } = presentAndOpen();
+  it('clears every presentation on reset', async () => {
+    const { id, onAnyEvent } = presentAndOpen();
 
-    emitGlobal({ type: 'paywallClose', triggerName: TRIGGER, isSecondTry: false });
-    perCall('purchasePressed');
+    await Helium.resetHelium();
+    await Helium.initialize({ apiKey: 'test-key' });
+    perCall(id, 'purchasePressed');
 
     expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen']);
   });

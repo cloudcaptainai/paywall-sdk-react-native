@@ -427,7 +427,16 @@ function dispatchPaywallSkip(
   }
 }
 
+const PREVIEW_TRIGGERS = new Set(['helium_preview_trigger', 'helium_preview_trigger_second_try']);
+
+function isPreviewTrigger(triggerName: string | undefined): boolean {
+  return triggerName !== undefined && PREVIEW_TRIGGERS.has(triggerName);
+}
+
 function handlePaywallEvent(event: HeliumPaywallEvent) {
+  if (isPreviewTrigger(event.triggerName)) {
+    return;
+  }
   switch (event.type) {
     case 'paywallClose':
       if (!event.isSecondTry) {
@@ -441,22 +450,19 @@ function handlePaywallEvent(event: HeliumPaywallEvent) {
       presentOnPaywallUnavailable = undefined;
       break;
     case 'paywallOpenFailed': {
-      paywallEventHandlers = undefined;
       const unavailableReason = event.paywallUnavailableReason;
+      if (unavailableReason === 'alreadyPresented' || unavailableReason === 'secondTryNoMatch') {
+        break;
+      }
+      paywallEventHandlers = undefined;
       const onPaywallUnavailable = presentOnPaywallUnavailable;
       presentOnPaywallUnavailable = undefined;
       presentOnPaywallSkip = undefined;
-      if (
-        event.triggerName &&
-        unavailableReason !== 'alreadyPresented' &&
-        unavailableReason !== 'secondTryNoMatch'
-      ) {
-        console.log('[Helium] paywall open failed', unavailableReason);
-        try {
-          onPaywallUnavailable?.();
-        } catch (e) {
-          console.error('[Helium] onPaywallUnavailable callback failed', e);
-        }
+      console.log('[Helium] paywall open failed', unavailableReason);
+      try {
+        onPaywallUnavailable?.();
+      } catch (e) {
+        console.error('[Helium] onPaywallUnavailable callback failed', e);
       }
       break;
     }

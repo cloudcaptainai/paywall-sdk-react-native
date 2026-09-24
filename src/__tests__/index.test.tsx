@@ -694,3 +694,120 @@ describe('fallback bundle', () => {
     );
   });
 });
+
+describe('presentUpsell handler retention', () => {
+  const TRIGGER = 'go_online';
+  const PREVIEW_TRIGGER = 'helium_preview_trigger';
+  const perCall = (type: string, triggerName = TRIGGER) =>
+    emitNativeEvent('paywallEventHandlers', { type, triggerName, paywallName: 'test-paywall' });
+  const emitGlobal = (event: Record<string, unknown>) =>
+    emitNativeEvent('onHeliumPaywallEvent', { paywallName: 'test-paywall', ...event });
+  const eventTypes = (handler: jest.Mock) => handler.mock.calls.map(([event]) => event.type);
+  let consoleLog: jest.SpyInstance;
+
+  beforeEach(async () => {
+    await Helium.resetHelium();
+    await Helium.initialize({ apiKey: 'test-key' });
+    consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLog.mockRestore();
+  });
+
+  const presentAndOpen = () => {
+    const onAnyEvent = jest.fn();
+    const onPaywallUnavailable = jest.fn();
+    Helium.presentUpsell({
+      triggerName: TRIGGER,
+      eventHandlers: { onAnyEvent },
+      onPaywallUnavailable,
+    });
+    perCall('paywallOpen');
+    return { onAnyEvent, onPaywallUnavailable };
+  };
+
+  it('keeps the on-screen handlers when a repeat present is rejected as already presented', () => {
+    const { onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+
+    Helium.presentUpsell({
+      triggerName: TRIGGER,
+      eventHandlers: { onAnyEvent },
+      onPaywallUnavailable,
+    });
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
+    });
+    perCall('purchasePressed');
+    perCall('purchaseCancelled');
+    perCall('purchaseRestoreFailed');
+
+    expect(eventTypes(onAnyEvent)).toEqual([
+      'paywallOpen',
+      'purchasePressed',
+      'purchaseCancelled',
+      'purchaseRestoreFailed',
+    ]);
+    expect(onPaywallUnavailable).not.toHaveBeenCalled();
+  });
+
+  it('keeps the on-screen handlers when a second try has no match', () => {
+    const { onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: `${TRIGGER}_second_try`,
+      paywallUnavailableReason: 'secondTryNoMatch',
+    });
+    perCall('purchasePressed');
+
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'purchasePressed']);
+    expect(onPaywallUnavailable).not.toHaveBeenCalled();
+  });
+
+  it('delivers preview paywall events and ignores the preview lifecycle for cleanup', () => {
+    const { onAnyEvent } = presentAndOpen();
+
+    perCall('paywallOpen', PREVIEW_TRIGGER);
+    perCall('purchaseRestoreFailed', PREVIEW_TRIGGER);
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: PREVIEW_TRIGGER,
+      paywallUnavailableReason: 'paywallsNotDownloaded',
+    });
+    emitGlobal({ type: 'paywallClose', triggerName: PREVIEW_TRIGGER, isSecondTry: false });
+    perCall('purchasePressed');
+
+    expect(eventTypes(onAnyEvent)).toEqual([
+      'paywallOpen',
+      'paywallOpen',
+      'purchaseRestoreFailed',
+      'purchasePressed',
+    ]);
+  });
+
+  it('still clears the handlers and reports a real open failure', () => {
+    const { onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'paywallsNotDownloaded',
+    });
+    perCall('purchasePressed');
+
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen']);
+    expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
+  });
+
+  it('still clears the handlers when the paywall closes', () => {
+    const { onAnyEvent } = presentAndOpen();
+
+    emitGlobal({ type: 'paywallClose', triggerName: TRIGGER, isSecondTry: false });
+    perCall('purchasePressed');
+
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen']);
+  });
+});

@@ -73,6 +73,10 @@ const emitNativeEvent = (name: string, payload?: unknown) => {
 
 /** The id the JS layer handed to the native bridge for the most recent presentUpsell call. */
 const lastPresentationId = (): string => bridge.presentUpsell.mock.calls.at(-1)?.[4];
+const withId = <T extends object>(payload: T) => ({
+  ...payload,
+  presentationId: lastPresentationId(),
+});
 
 describe('public API surface', () => {
   const expectedFunctions = [
@@ -268,8 +272,8 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
 
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
     expect(onPaywallSkip).toHaveBeenCalledWith(holdoutSkip);
@@ -283,8 +287,8 @@ describe('presentUpsell skip and entitled handling', () => {
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip: first });
 
     const secondSkip = { ...holdoutSkip, triggerName: 'second_trigger' };
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
-    emitNativeEvent('onPaywallSkipEvent', secondSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
+    emitNativeEvent('onPaywallSkipEvent', withId(secondSkip));
 
     expect(first).toHaveBeenCalledTimes(1);
     expect(first).toHaveBeenCalledWith(holdoutSkip);
@@ -300,7 +304,7 @@ describe('presentUpsell skip and entitled handling', () => {
     });
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip, onPaywallUnavailable });
 
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
 
     expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
     expect(onPaywallSkip).not.toHaveBeenCalled();
@@ -311,7 +315,7 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled, onPaywallSkip });
 
-    emitNativeEvent('onEntitledEvent', entitledSkip);
+    emitNativeEvent('onEntitledEvent', withId(entitledSkip));
 
     expect(onEntitled).toHaveBeenCalledTimes(1);
     expect(onEntitled).toHaveBeenCalledWith(entitledSkip);
@@ -322,7 +326,7 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onEntitledEvent', entitledSkip);
+    emitNativeEvent('onEntitledEvent', withId(entitledSkip));
 
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
     expect(onPaywallSkip).toHaveBeenCalledWith(entitledSkip);
@@ -333,22 +337,10 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled, onPaywallSkip });
 
-    emitNativeEvent('onEntitledEvent', entitledSkip);
-    emitNativeEvent('onPaywallSkipEvent', entitledSkip);
+    emitNativeEvent('onEntitledEvent', withId(entitledSkip));
+    emitNativeEvent('onPaywallSkipEvent', withId(entitledSkip));
 
     expect(onEntitled).toHaveBeenCalledTimes(1);
-    expect(onPaywallSkip).not.toHaveBeenCalled();
-  });
-
-  it('routes a dedicated already-entitled skip event to onEntitled when provided', () => {
-    const onEntitled = jest.fn();
-    const onPaywallSkip = jest.fn();
-    Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled, onPaywallSkip });
-
-    emitNativeEvent('onPaywallSkipEvent', entitledSkip);
-
-    expect(onEntitled).toHaveBeenCalledTimes(1);
-    expect(onEntitled).toHaveBeenCalledWith(entitledSkip);
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
 
@@ -356,22 +348,10 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onPaywallSkipEvent', entitledSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(entitledSkip));
 
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
     expect(onPaywallSkip).toHaveBeenCalledWith(entitledSkip);
-  });
-
-  it('calls onEntitled once when the dedicated already-entitled skip arrives before the entitled event', () => {
-    const onEntitled = jest.fn();
-    const onPaywallSkip = jest.fn();
-    Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled, onPaywallSkip });
-
-    emitNativeEvent('onPaywallSkipEvent', entitledSkip);
-    emitNativeEvent('onEntitledEvent', entitledSkip);
-
-    expect(onEntitled).toHaveBeenCalledTimes(1);
-    expect(onPaywallSkip).not.toHaveBeenCalled();
   });
 
   it('still dispatches a paywallSkipped entitled payload that is missing skipReason', () => {
@@ -379,7 +359,10 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onEntitledEvent', { type: 'paywallSkipped', triggerName: 'my_trigger' });
+    emitNativeEvent(
+      'onEntitledEvent',
+      withId({ type: 'paywallSkipped', triggerName: 'my_trigger' })
+    );
 
     expect(onPaywallSkip).toHaveBeenCalledWith({
       type: 'paywallSkipped',
@@ -402,19 +385,14 @@ describe('presentUpsell skip and entitled handling', () => {
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
 
-  it('normalizes an undefined native skip payload', () => {
+  it('ignores an undefined native skip payload', () => {
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
     expect(() => emitNativeEvent('onPaywallSkipEvent', undefined)).not.toThrow();
 
-    expect(onPaywallSkip).toHaveBeenCalledWith({
-      type: 'paywallSkipped',
-      triggerName: 'hlm_unknown',
-      skipReason: 'unknown',
-    });
-    expect(consoleWarn).toHaveBeenCalled();
+    expect(onPaywallSkip).not.toHaveBeenCalled();
     expect(consoleError).not.toHaveBeenCalled();
     consoleWarn.mockRestore();
   });
@@ -425,7 +403,7 @@ describe('presentUpsell skip and entitled handling', () => {
     });
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    expect(() => emitNativeEvent('onPaywallSkipEvent', holdoutSkip)).not.toThrow();
+    expect(() => emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip))).not.toThrow();
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
     expect(consoleError).toHaveBeenCalledWith(
       '[Helium] onPaywallSkip callback failed',
@@ -438,7 +416,7 @@ describe('presentUpsell skip and entitled handling', () => {
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
     emitNativeEvent('onHeliumPaywallEvent', holdoutSkip);
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
 
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
   });
@@ -448,7 +426,7 @@ describe('presentUpsell skip and entitled handling', () => {
     const onPaywallSkip = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onPaywallSkip });
 
-    emitNativeEvent('onPaywallSkipEvent', { type: 'paywallSkipped' });
+    emitNativeEvent('onPaywallSkipEvent', withId({ type: 'paywallSkipped' }));
 
     expect(onPaywallSkip).toHaveBeenCalledWith({
       type: 'paywallSkipped',
@@ -473,7 +451,7 @@ describe('presentUpsell skip and entitled handling', () => {
       paywallUnavailableReason: 'notInitialized',
       presentationId: lastPresentationId(),
     });
-    emitNativeEvent('onPaywallSkipEvent', { ...holdoutSkip, triggerName: 'second' });
+    emitNativeEvent('onPaywallSkipEvent', withId({ ...holdoutSkip, triggerName: 'second' }));
 
     expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
@@ -514,7 +492,7 @@ describe('presentUpsell skip and entitled handling', () => {
       isSecondTry: false,
       presentationId: lastPresentationId(),
     });
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
 
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
@@ -529,7 +507,7 @@ describe('presentUpsell skip and entitled handling', () => {
       isSecondTry: true,
       presentationId: lastPresentationId(),
     });
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
 
     expect(onPaywallSkip).toHaveBeenCalledTimes(1);
   });
@@ -544,7 +522,7 @@ describe('presentUpsell skip and entitled handling', () => {
       paywallUnavailableReason: 'bundleFetch404',
       presentationId: lastPresentationId(),
     });
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
 
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
@@ -565,7 +543,7 @@ describe('presentUpsell skip and entitled handling', () => {
 
     await Helium.resetHelium();
     await Helium.initialize({ apiKey: 'test-key' });
-    emitNativeEvent('onPaywallSkipEvent', holdoutSkip);
+    emitNativeEvent('onPaywallSkipEvent', withId(holdoutSkip));
 
     expect(onPaywallSkip).not.toHaveBeenCalled();
   });
@@ -575,7 +553,7 @@ describe('presentUpsell skip and entitled handling', () => {
     Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled });
 
     const purchased = { type: 'purchaseSucceeded', productId: 'pro_monthly' };
-    emitNativeEvent('onEntitledEvent', purchased);
+    emitNativeEvent('onEntitledEvent', withId(purchased));
 
     expect(onEntitled).toHaveBeenCalledTimes(1);
     expect(onEntitled).toHaveBeenCalledWith(purchased);
@@ -588,11 +566,11 @@ describe('presentUpsell skip and entitled handling', () => {
     };
     const onEntitledSpy = jest.fn();
     Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled });
-    emitNativeEvent('onEntitledEvent', {});
+    emitNativeEvent('onEntitledEvent', withId({}));
     expect(calls).toBe(1);
 
     Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled: onEntitledSpy });
-    emitNativeEvent('onEntitledEvent', {});
+    emitNativeEvent('onEntitledEvent', withId({}));
     expect(onEntitledSpy).toHaveBeenCalledWith(undefined);
   });
 
@@ -602,7 +580,7 @@ describe('presentUpsell skip and entitled handling', () => {
     });
     Helium.presentUpsell({ triggerName: 'my_trigger', onEntitled });
 
-    expect(() => emitNativeEvent('onEntitledEvent', entitledSkip)).not.toThrow();
+    expect(() => emitNativeEvent('onEntitledEvent', withId(entitledSkip))).not.toThrow();
     expect(consoleError).toHaveBeenCalledWith(
       '[Helium] onEntitled callback failed',
       expect.any(Error)
@@ -1055,18 +1033,55 @@ describe('presentation routing', () => {
     expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen']);
   });
 
-  it('drops an event without a presentation id when no presentation can take it', () => {
-    const { id, onAnyEvent, onPaywallUnavailable } = presentAndOpen();
+  it('ignores events that carry no presentation id', () => {
+    const onAnyEvent = jest.fn();
+    const onPaywallUnavailable = jest.fn();
+    const onPaywallSkip = jest.fn();
 
+    Helium.presentUpsell({
+      triggerName: TRIGGER,
+      eventHandlers: { onAnyEvent },
+      onPaywallUnavailable,
+      onPaywallSkip,
+    });
+    const id = idOfCall(0);
+    emitNativeEvent('paywallEventHandlers', {
+      type: 'paywallOpen',
+      triggerName: TRIGGER,
+      paywallName: 'test-paywall',
+    });
     emitNativeEvent('onPaywallUnavailableEvent', {
       type: 'paywallOpenFailed',
       triggerName: TRIGGER,
       paywallUnavailableReason: 'paywallsNotDownloaded',
     });
-    perCall(id, 'purchasePressed');
+    emitNativeEvent('onPaywallSkipEvent', {
+      type: 'paywallSkipped',
+      triggerName: TRIGGER,
+      skipReason: 'targetingHoldout',
+    });
+    perCall(id, 'paywallOpen');
 
     expect(onPaywallUnavailable).not.toHaveBeenCalled();
-    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'purchasePressed']);
+    expect(onPaywallSkip).not.toHaveBeenCalled();
+    expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen']);
+  });
+
+  it('keeps the presentation id off the events handed to the app', () => {
+    const onAnyEvent = jest.fn();
+    const onEntitled = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent }, onEntitled });
+    const id = idOfCall(0);
+    perCall(id, 'paywallOpen');
+    emitNativeEvent('onEntitledEvent', {
+      type: 'purchaseSucceeded',
+      triggerName: TRIGGER,
+      presentationId: id,
+    });
+
+    expect(onAnyEvent.mock.calls[0][0]).not.toHaveProperty('presentationId');
+    expect(onEntitled.mock.calls[0][0]).not.toHaveProperty('presentationId');
   });
 
   it('clears every presentation on reset', async () => {

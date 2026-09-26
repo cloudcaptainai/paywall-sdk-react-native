@@ -20,6 +20,7 @@ RCT_EXTERN_METHOD(
     customPaywallTraits:(NSDictionary *)customPaywallTraits
     dontShowIfAlreadyEntitled:(BOOL)dontShowIfAlreadyEntitled
     androidDisableSystemBackNavigation:(BOOL)androidDisableSystemBackNavigation
+    presentationId:(NSString *)presentationId
 )
 
 RCT_EXTERN_METHOD(

@@ -744,7 +744,6 @@ describe('presentation routing', () => {
       eventHandlers: { onAnyEvent: rejected },
       onPaywallUnavailable: rejectedUnavailable,
     });
-    const rejectedId = idOfCall(1);
     emitGlobal({
       type: 'paywallOpenFailed',
       triggerName: TRIGGER,
@@ -753,7 +752,6 @@ describe('presentation routing', () => {
     perCall(id, 'purchasePressed');
     perCall(id, 'purchaseCancelled');
     perCall(id, 'purchaseRestoreFailed');
-    perCall(rejectedId, 'purchasePressed');
 
     expect(eventTypes(onAnyEvent)).toEqual([
       'paywallOpen',
@@ -915,11 +913,16 @@ describe('presentation routing', () => {
     expect(onEntitled).toHaveBeenCalledTimes(1);
   });
 
-  it('ignores close and skipped events on the global channel', () => {
+  it('ignores lifecycle events on the global channel', () => {
     const { id, onAnyEvent } = presentAndOpen();
 
     emitGlobal({ type: 'paywallClose', triggerName: TRIGGER, isSecondTry: false });
     emitGlobal({ type: 'paywallSkipped', triggerName: TRIGGER, skipReason: 'targetingHoldout' });
+    emitGlobal({
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'alreadyPresented',
+    });
     perCall(id, 'purchasePressed');
 
     expect(eventTypes(onAnyEvent)).toEqual(['paywallOpen', 'purchasePressed']);
@@ -940,35 +943,30 @@ describe('presentation routing', () => {
     expect(onPaywallUnavailable).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves interleaved rejections by trigger', () => {
-    const first = jest.fn();
-    const second = jest.fn();
+  it('drops every other presentation when one opens', () => {
+    const earlierEntitled = jest.fn();
+    const current = jest.fn();
+    const repeat = jest.fn();
 
-    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: first } });
-    Helium.presentUpsell({ triggerName: OTHER_TRIGGER, eventHandlers: { onAnyEvent: second } });
-    const firstId = idOfCall(0);
-    const secondId = idOfCall(1);
-    perCall(firstId, 'paywallOpenFailed', TRIGGER, {
-      paywallUnavailableReason: 'alreadyPresented',
-    });
-    emitGlobal({
-      type: 'paywallOpenFailed',
-      triggerName: OTHER_TRIGGER,
-      paywallUnavailableReason: 'alreadyPresented',
-    });
-    perCall(firstId, 'paywallOpenFailed', TRIGGER, {
-      paywallUnavailableReason: 'alreadyPresented',
-    });
-    perCall(secondId, 'paywallOpen', OTHER_TRIGGER);
-    emitGlobal({
-      type: 'paywallOpenFailed',
+    Helium.presentUpsell({ triggerName: TRIGGER, onEntitled: earlierEntitled });
+    const earlierId = idOfCall(0);
+    perCall(earlierId, 'paywallOpen');
+    perCall(earlierId, 'paywallClose', TRIGGER, { isSecondTry: false });
+    Helium.presentUpsell({ triggerName: OTHER_TRIGGER, eventHandlers: { onAnyEvent: current } });
+    Helium.presentUpsell({ triggerName: OTHER_TRIGGER, eventHandlers: { onAnyEvent: repeat } });
+    const currentId = idOfCall(1);
+    const repeatId = idOfCall(2);
+    perCall(currentId, 'paywallOpen', OTHER_TRIGGER);
+    perCall(repeatId, 'purchasePressed', OTHER_TRIGGER);
+    emitNativeEvent('onEntitledEvent', {
+      type: 'purchaseSucceeded',
       triggerName: TRIGGER,
-      paywallUnavailableReason: 'alreadyPresented',
+      presentationId: earlierId,
     });
-    perCall(firstId, 'paywallOpen');
 
-    expect(eventTypes(first)).toEqual(['paywallOpenFailed', 'paywallOpenFailed']);
-    expect(second).not.toHaveBeenCalled();
+    expect(eventTypes(current)).toEqual(['paywallOpen']);
+    expect(repeat).not.toHaveBeenCalled();
+    expect(earlierEntitled).not.toHaveBeenCalled();
   });
 
   it('does not report a rejected repeat present as unavailable', () => {

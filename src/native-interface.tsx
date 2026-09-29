@@ -87,7 +87,6 @@ function setupEventListeners(config: HeliumConfig) {
   removeAllHeliumListeners();
 
   heliumEventEmitter.addListener('onHeliumPaywallEvent', (event: HeliumPaywallEvent) => {
-    handlePaywallEvent(event);
     try {
       config.purchaseConfig?.onHeliumEvent?.(event);
     } catch {}
@@ -207,15 +206,12 @@ function setupEventListeners(config: HeliumConfig) {
     'onPaywallUnavailableEvent',
     (event: NativePaywallUnavailableEvent) => {
       try {
-        if (event.paywallUnavailableReason === 'secondTryNoMatch') {
+        const reason = event.paywallUnavailableReason;
+        if (reason === 'alreadyPresented' || reason === 'secondTryNoMatch') {
           return;
         }
-        const presentation = presentationFor(event?.presentationId);
+        const presentation = presentationFor(event.presentationId);
         if (!presentation) {
-          return;
-        }
-        if (event.paywallUnavailableReason === 'alreadyPresented') {
-          presentation.rejected = true;
           return;
         }
         const onPaywallUnavailable = presentation.onPaywallUnavailable;
@@ -307,9 +303,7 @@ export const initialize = async (config: HeliumConfig) => {
 type PaywallPresentation = {
   id: string;
   triggerName: string;
-  opened: boolean;
   closed: boolean;
-  rejected: boolean;
   eventHandlers?: PaywallEventHandlers;
   onPaywallUnavailable?: () => void;
   onEntitled?: (event?: PaywallEntitledEvent) => void;
@@ -324,18 +318,6 @@ function nextPresentationId(triggerName: string): string {
   return `${triggerName}:${Date.now().toString(36)}:${presentationSequence}`;
 }
 
-function latestPresentation(
-  predicate: (presentation: PaywallPresentation) => boolean
-): PaywallPresentation | undefined {
-  let match: PaywallPresentation | undefined;
-  paywallPresentations.forEach((presentation) => {
-    if (predicate(presentation)) {
-      match = presentation;
-    }
-  });
-  return match;
-}
-
 function presentationFor(presentationId: string | undefined): PaywallPresentation | undefined {
   return presentationId ? paywallPresentations.get(presentationId) : undefined;
 }
@@ -344,6 +326,11 @@ function withoutPresentationId<T extends { presentationId?: string }>(event: T):
   const stripped = { ...event };
   delete stripped.presentationId;
   return stripped;
+}
+
+function dropOtherPresentations(current: PaywallPresentation) {
+  paywallPresentations.clear();
+  paywallPresentations.set(current.id, current);
 }
 
 function endPresentation(presentation: PaywallPresentation) {
@@ -374,9 +361,7 @@ export const presentUpsell = ({
   const presentation: PaywallPresentation = {
     id: nextPresentationId(triggerName),
     triggerName,
-    opened: false,
     closed: false,
-    rejected: false,
     eventHandlers,
     onPaywallUnavailable,
     onEntitled,
@@ -406,8 +391,8 @@ function callPaywallEventHandlers(event: PresentationScoped<HeliumPaywallEvent>)
   if (!presentation) {
     return;
   }
-  if (event.type === 'paywallOpen' && !event.isSecondTry) {
-    presentation.opened = true;
+  if (event.type === 'paywallOpen') {
+    dropOtherPresentations(presentation);
   }
   if (presentation.eventHandlers) {
     dispatchPaywallEvent(presentation.eventHandlers, withoutPresentationId(event), 'presented');
@@ -422,7 +407,7 @@ function callPaywallEventHandlers(event: PresentationScoped<HeliumPaywallEvent>)
     event.type === 'paywallOpenFailed' &&
     event.paywallUnavailableReason === 'alreadyPresented'
   ) {
-    presentation.rejected = true;
+    paywallPresentations.delete(presentation.id);
   }
 }
 
@@ -553,23 +538,6 @@ function dispatchPaywallSkip(
     onPaywallSkip?.(skipEvent);
   } catch (e) {
     console.error('[Helium] onPaywallSkip callback failed', e);
-  }
-}
-
-function handlePaywallEvent(event: HeliumPaywallEvent) {
-  if (event.type !== 'paywallOpenFailed' || event.paywallUnavailableReason !== 'alreadyPresented') {
-    return;
-  }
-  const rejected =
-    latestPresentation(
-      (candidate) => candidate.rejected && candidate.triggerName === event.triggerName
-    ) ??
-    latestPresentation(
-      (candidate) =>
-        !candidate.opened && !candidate.closed && candidate.triggerName === event.triggerName
-    );
-  if (rejected) {
-    paywallPresentations.delete(rejected.id);
   }
 }
 

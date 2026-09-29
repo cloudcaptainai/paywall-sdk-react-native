@@ -12,6 +12,10 @@
 @interface RCT_EXTERN_MODULE(HeliumBridge, NSObject)
 
 RCT_EXTERN_METHOD(
+    setWrapperSdkInfo:(NSString *)version
+)
+
+RCT_EXTERN_METHOD(
     initialize:(NSDictionary *)config
 )
 

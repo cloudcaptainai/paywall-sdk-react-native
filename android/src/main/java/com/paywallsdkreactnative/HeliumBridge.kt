@@ -224,6 +224,11 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     // -------------------------------------------------------------------------
 
     @ReactMethod
+    fun setWrapperSdkInfo(version: String) {
+        HeliumWrapperSdkConfig.setWrapperSdkInfo(sdk = "old-expo", version = version)
+    }
+
+    @ReactMethod
     fun initialize(config: ReadableMap) {
         val apiKey = config.getString("apiKey")
         if (apiKey.isNullOrEmpty()) {

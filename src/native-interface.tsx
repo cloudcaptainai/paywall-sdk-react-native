@@ -341,6 +341,11 @@ function dropUnopenedPresentations(current: PaywallPresentation) {
 }
 
 function endPresentation(presentation: PaywallPresentation) {
+  paywallPresentations.forEach((other, id) => {
+    if (id !== presentation.id && other.closed) {
+      paywallPresentations.delete(id);
+    }
+  });
   presentation.closed = true;
   presentation.eventHandlers = undefined;
   presentation.onPaywallUnavailable = undefined;

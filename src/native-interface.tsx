@@ -214,11 +214,15 @@ function setupEventListeners(config: HeliumConfig) {
         if (!presentation) {
           return;
         }
-        paywallPresentations.delete(presentation.id);
         if (reason === 'alreadyPresented') {
+          paywallPresentations.delete(presentation.id);
           return;
         }
         const onPaywallUnavailable = presentation.onPaywallUnavailable;
+        presentation.onPaywallUnavailable = undefined;
+        presentation.onEntitled = undefined;
+        presentation.onPaywallSkip = undefined;
+        finishPresentation(presentation);
         console.log('[Helium] paywall open failed', event.paywallUnavailableReason);
         try {
           onPaywallUnavailable?.();
@@ -308,6 +312,7 @@ type PaywallPresentation = {
   triggerName: string;
   opened: boolean;
   closed: boolean;
+  ended: boolean;
   eventHandlers?: PaywallEventHandlers;
   onPaywallUnavailable?: () => void;
   onEntitled?: (event?: PaywallEntitledEvent) => void;
@@ -338,6 +343,14 @@ function dropUnopenedPresentations(current: PaywallPresentation) {
       paywallPresentations.delete(id);
     }
   });
+}
+
+function finishPresentation(presentation: PaywallPresentation) {
+  if (presentation.ended) {
+    paywallPresentations.delete(presentation.id);
+  } else {
+    presentation.ended = true;
+  }
 }
 
 function endPresentation(presentation: PaywallPresentation) {
@@ -375,6 +388,7 @@ export const presentUpsell = ({
     triggerName,
     opened: false,
     closed: false,
+    ended: false,
     eventHandlers,
     onPaywallUnavailable,
     onEntitled,
@@ -394,7 +408,11 @@ export const presentUpsell = ({
   } catch (error) {
     console.log('[Helium] presentUpsell error', error);
     paywallPresentations.delete(presentation.id);
-    onPaywallUnavailable?.();
+    try {
+      onPaywallUnavailable?.();
+    } catch (e) {
+      console.error('[Helium] onPaywallUnavailable callback failed', e);
+    }
     HeliumBridge.fallbackOpenOrCloseEvent(triggerName, true, 'presented');
   }
 };
@@ -422,6 +440,11 @@ function callPaywallEventHandlers(event: PresentationScoped<HeliumPaywallEvent>)
     event.paywallUnavailableReason === 'alreadyPresented'
   ) {
     paywallPresentations.delete(presentation.id);
+  } else if (
+    (event.type === 'paywallOpenFailed' && !event.isSecondTry) ||
+    event.type === 'paywallSkipped'
+  ) {
+    finishPresentation(presentation);
   }
 }
 
@@ -519,8 +542,12 @@ function dispatchEntitled(
   const onEntitled = presentation?.onEntitled;
   if (presentation) {
     presentation.onEntitled = undefined;
-    if (entitledEvent?.type === 'paywallSkipped' || presentation.closed) {
+    if (presentation.closed) {
       paywallPresentations.delete(presentation.id);
+    } else if (entitledEvent?.type === 'paywallSkipped') {
+      presentation.onPaywallSkip = undefined;
+      presentation.onPaywallUnavailable = undefined;
+      finishPresentation(presentation);
     }
   }
   try {
@@ -546,7 +573,10 @@ function dispatchPaywallSkip(
   };
   const onPaywallSkip = presentation?.onPaywallSkip;
   if (presentation) {
-    paywallPresentations.delete(presentation.id);
+    presentation.onPaywallSkip = undefined;
+    presentation.onEntitled = undefined;
+    presentation.onPaywallUnavailable = undefined;
+    finishPresentation(presentation);
   }
   try {
     onPaywallSkip?.(skipEvent);

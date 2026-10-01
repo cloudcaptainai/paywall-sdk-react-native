@@ -222,7 +222,7 @@ function setupEventListeners(config: HeliumConfig) {
         presentation.onPaywallUnavailable = undefined;
         presentation.onEntitled = undefined;
         presentation.onPaywallSkip = undefined;
-        finishPresentation(presentation);
+        finishPresentation(presentation, nativeReportsTerminalEventLate());
         console.log('[Helium] paywall open failed', event.paywallUnavailableReason);
         try {
           onPaywallUnavailable?.();
@@ -339,18 +339,22 @@ function withoutPresentationId<T extends { presentationId?: string }>(event: T):
 
 function dropUnopenedPresentations(current: PaywallPresentation) {
   paywallPresentations.forEach((presentation, id) => {
-    if (id !== current.id && !presentation.opened) {
+    if (id !== current.id && !presentation.opened && !presentation.ended) {
       paywallPresentations.delete(id);
     }
   });
 }
 
-function finishPresentation(presentation: PaywallPresentation) {
-  if (presentation.ended) {
+function finishPresentation(presentation: PaywallPresentation, awaitingNativeEvent: boolean) {
+  if (presentation.ended || !awaitingNativeEvent) {
     paywallPresentations.delete(presentation.id);
   } else {
     presentation.ended = true;
   }
+}
+
+function nativeReportsTerminalEventLate(): boolean {
+  return Platform.OS === 'android';
 }
 
 function endPresentation(presentation: PaywallPresentation) {
@@ -441,10 +445,10 @@ function callPaywallEventHandlers(event: PresentationScoped<HeliumPaywallEvent>)
   ) {
     paywallPresentations.delete(presentation.id);
   } else if (
-    (event.type === 'paywallOpenFailed' && !event.isSecondTry) ||
-    event.type === 'paywallSkipped'
+    event.triggerName === presentation.triggerName &&
+    ((event.type === 'paywallOpenFailed' && !event.isSecondTry) || event.type === 'paywallSkipped')
   ) {
-    finishPresentation(presentation);
+    finishPresentation(presentation, true);
   }
 }
 
@@ -547,7 +551,7 @@ function dispatchEntitled(
     } else if (entitledEvent?.type === 'paywallSkipped') {
       presentation.onPaywallSkip = undefined;
       presentation.onPaywallUnavailable = undefined;
-      finishPresentation(presentation);
+      finishPresentation(presentation, nativeReportsTerminalEventLate());
     }
   }
   try {
@@ -576,7 +580,7 @@ function dispatchPaywallSkip(
     presentation.onPaywallSkip = undefined;
     presentation.onEntitled = undefined;
     presentation.onPaywallUnavailable = undefined;
-    finishPresentation(presentation);
+    finishPresentation(presentation, nativeReportsTerminalEventLate());
   }
   try {
     onPaywallSkip?.(skipEvent);

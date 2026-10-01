@@ -688,6 +688,10 @@ describe('fallback bundle', () => {
 });
 
 describe('presentation routing', () => {
+  const setPlatform = (os: 'ios' | 'android') => {
+    require('react-native').Platform.OS = os;
+  };
+  afterEach(() => setPlatform('ios'));
   const TRIGGER = 'go_online';
   const OTHER_TRIGGER = 'go_offline';
   const PREVIEW_TRIGGER = 'helium_preview_trigger';
@@ -945,6 +949,7 @@ describe('presentation routing', () => {
   });
 
   it('delivers an open failure that native reports after onPaywallUnavailable', () => {
+    setPlatform('android');
     const onAnyEvent = jest.fn();
     const onPaywallUnavailable = jest.fn();
 
@@ -970,6 +975,7 @@ describe('presentation routing', () => {
   });
 
   it('delivers a skip that native reports after onPaywallSkip', () => {
+    setPlatform('android');
     const onAnyEvent = jest.fn();
     const onPaywallSkip = jest.fn();
 
@@ -1176,6 +1182,70 @@ describe('presentation routing', () => {
 
     expect(onAnyEvent.mock.calls[0][0]).not.toHaveProperty('presentationId');
     expect(onEntitled.mock.calls[0][0]).not.toHaveProperty('presentationId');
+  });
+
+  it('keeps a presentation awaiting its late native event when another paywall opens', () => {
+    setPlatform('android');
+    const failed = jest.fn();
+    const retried = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: failed } });
+    const failedId = idOfCall(0);
+    emitNativeEvent('onPaywallUnavailableEvent', {
+      type: 'paywallOpenFailed',
+      triggerName: TRIGGER,
+      paywallUnavailableReason: 'paywallsNotDownloaded',
+      presentationId: failedId,
+    });
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent: retried } });
+    const retriedId = idOfCall(1);
+    perCall(retriedId, 'paywallOpen');
+    perCall(failedId, 'paywallOpenFailed', TRIGGER, {
+      paywallUnavailableReason: 'paywallsNotDownloaded',
+    });
+    perCall(failedId, 'purchasePressed');
+
+    expect(eventTypes(failed)).toEqual(['paywallOpenFailed']);
+    expect(eventTypes(retried)).toEqual(['paywallOpen']);
+  });
+
+  it('drops a skipped presentation at once where native sends no later event', () => {
+    const onAnyEvent = jest.fn();
+    const onPaywallSkip = jest.fn();
+
+    Helium.presentUpsell({ triggerName: TRIGGER, eventHandlers: { onAnyEvent }, onPaywallSkip });
+    const skippedId = idOfCall(0);
+    emitNativeEvent('onPaywallSkipEvent', {
+      type: 'paywallSkipped',
+      triggerName: TRIGGER,
+      skipReason: 'targetingHoldout',
+      presentationId: skippedId,
+    });
+    Helium.presentUpsell({ triggerName: OTHER_TRIGGER });
+    perCall(idOfCall(1), 'paywallOpen', OTHER_TRIGGER);
+    perCall(skippedId, 'purchasePressed');
+
+    expect(onPaywallSkip).toHaveBeenCalledTimes(1);
+    expect(onAnyEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not end the host presentation when a preview fails to open', () => {
+    const { id, onAnyEvent } = presentAndOpen();
+
+    perCall(id, 'paywallOpenFailed', PREVIEW_TRIGGER, {
+      paywallUnavailableReason: 'paywallsNotDownloaded',
+    });
+    perCall(id, 'paywallOpenFailed', PREVIEW_TRIGGER, {
+      paywallUnavailableReason: 'paywallsNotDownloaded',
+    });
+    perCall(id, 'purchasePressed');
+
+    expect(eventTypes(onAnyEvent)).toEqual([
+      'paywallOpen',
+      'paywallOpenFailed',
+      'paywallOpenFailed',
+      'purchasePressed',
+    ]);
   });
 
   it('clears every presentation on reset', async () => {

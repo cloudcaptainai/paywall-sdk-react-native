@@ -396,16 +396,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                     val skipReason = when (reason) {
                         PaywallNotShownReason.TargetingHoldout -> PaywallSkippedReason.TargetingHoldout
                         PaywallNotShownReason.AlreadyEntitled -> PaywallSkippedReason.AlreadyEntitled
-                        is PaywallNotShownReason.Error -> {
-                            val eventMap = mutableMapOf<String, Any>(
-                                "type" to "paywallOpenFailed",
-                                "triggerName" to trigger,
-                                "paywallUnavailableReason" to (reason.unavailableReason?.rawValue ?: "unknown")
-                            )
-                            presentationId?.let { eventMap["presentationId"] = it }
-                            BridgeStateManager.safeSendEvent(EVENT_PAYWALL_UNAVAILABLE, eventMap)
-                            null
-                        }
+                        is PaywallNotShownReason.Error -> null
                     }
                     if (skipReason != null) {
                         val eventMap = mutableMapOf<String, Any>(
@@ -415,6 +406,14 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                         )
                         presentationId?.let { eventMap["presentationId"] = it }
                         BridgeStateManager.safeSendEvent(EVENT_PAYWALL_SKIP, eventMap)
+                    } else if (reason is PaywallNotShownReason.Error) {
+                        val eventMap = mutableMapOf<String, Any>(
+                            "type" to "paywallOpenFailed",
+                            "triggerName" to trigger,
+                            "paywallUnavailableReason" to (reason.unavailableReason?.rawValue ?: "unknown")
+                        )
+                        presentationId?.let { eventMap["presentationId"] = it }
+                        BridgeStateManager.safeSendEvent(EVENT_PAYWALL_UNAVAILABLE, eventMap)
                     }
                 }.onFailure { Log.w(TAG, "Failed to forward paywall skip", it) }
             }

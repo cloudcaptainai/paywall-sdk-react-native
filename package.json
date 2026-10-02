@@ -110,7 +110,10 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/examples",
       "<rootDir>/lib/"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@tryheliumai/paywall-sdk-react-native/package.json$": "<rootDir>/package.json"
+    }
   },
   "eslintConfig": {
     "root": true,

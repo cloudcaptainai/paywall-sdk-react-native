@@ -75,7 +75,7 @@ const emitNativeEvent = (name: string, payload?: unknown) => {
 describe('wrapper SDK info', () => {
   it('reaches the native SDK on import, before any initialize or present', () => {
     expect(bridge.setWrapperSdkInfo).toHaveBeenCalledTimes(1);
-    expect(bridge.setWrapperSdkInfo).toHaveBeenCalledWith(expect.any(String));
+    expect(bridge.setWrapperSdkInfo).toHaveBeenCalledWith(require('../../package.json').version);
     expect(bridge.initialize).not.toHaveBeenCalled();
     expect(bridge.presentUpsell).not.toHaveBeenCalled();
   });

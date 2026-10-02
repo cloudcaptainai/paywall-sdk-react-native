@@ -37,6 +37,11 @@ try {
 } catch {
   // package.json can't be loaded, accept that we won't get wrapper sdk version
 }
+try {
+  HeliumBridge.setWrapperSdkInfo(SDK_VERSION);
+} catch (error) {
+  console.warn('[Helium] Failed to set wrapper SDK info.', error);
+}
 
 type ExpoFileSystemModule = {
   documentDirectory: string | null;

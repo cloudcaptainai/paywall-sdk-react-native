@@ -24,7 +24,8 @@
         "default": "./lib/commonjs/index.js"
       },
       "types": "./lib/typescript/module/src/index.d.ts"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "src",
@@ -110,7 +111,10 @@
     "modulePathIgnorePatterns": [
       "<rootDir>/examples",
       "<rootDir>/lib/"
-    ]
+    ],
+    "moduleNameMapper": {
+      "^@tryheliumai/paywall-sdk-react-native/package.json$": "<rootDir>/package.json"
+    }
   },
   "eslintConfig": {
     "root": true,

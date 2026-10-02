@@ -189,6 +189,11 @@ class HeliumBridge: RCTEventEmitter {
     }
 
     @objc
+    public func setWrapperSdkInfo(_ version: String) {
+        HeliumSdkConfig.shared.setWrapperSdkInfo(sdk: "old-expo", version: version)
+    }
+
+    @objc
     public func initialize(_ config: NSDictionary) {
         guard let apiKey = config["apiKey"] as? String, !apiKey.isEmpty else {
             print("[Helium] initialize called with missing/empty apiKey; aborting.")

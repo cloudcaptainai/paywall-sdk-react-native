@@ -6,6 +6,7 @@ jest.mock('react-native', () => {
   const bridge = {
     addListener: jest.fn(),
     removeListeners: jest.fn(),
+    setWrapperSdkInfo: jest.fn(),
     initialize: jest.fn(),
     presentUpsell: jest.fn(),
     hideUpsell: jest.fn(),
@@ -70,6 +71,15 @@ const emitNativeEvent = (name: string, payload?: unknown) => {
     listener(payload);
   }
 };
+
+describe('wrapper SDK info', () => {
+  it('reaches the native SDK on import, before any initialize or present', () => {
+    expect(bridge.setWrapperSdkInfo).toHaveBeenCalledTimes(1);
+    expect(bridge.setWrapperSdkInfo).toHaveBeenCalledWith(require('../../package.json').version);
+    expect(bridge.initialize).not.toHaveBeenCalled();
+    expect(bridge.presentUpsell).not.toHaveBeenCalled();
+  });
+});
 
 /** The id the JS layer handed to the native bridge for the most recent presentUpsell call. */
 const lastPresentationId = (): string => bridge.presentUpsell.mock.calls.at(-1)?.[4];

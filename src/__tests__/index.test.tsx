@@ -79,6 +79,8 @@ describe('wrapper SDK info', () => {
     expect(bridge.initialize).not.toHaveBeenCalled();
     expect(bridge.presentUpsell).not.toHaveBeenCalled();
   });
+});
+
 /** The id the JS layer handed to the native bridge for the most recent presentUpsell call. */
 const lastPresentationId = (): string => bridge.presentUpsell.mock.calls.at(-1)?.[4];
 const withId = <T extends object>(payload: T) => ({

@@ -8,6 +8,7 @@ React Native SDK for Helium paywalls. Supports bare React Native and Expo 49–5
 
 - **Never crash the host app.** This SDK is distributed to apps with millions of users. Wrap bridge boundaries and event handlers in try/catch to prevent SDK errors from propagating. For critical flows consider logging and/or surfacing failures to callers rather than silently swallowing them.
 - **Avoid using "fallback" in code and comments** unless referring to the Helium fallback paywall flow. This term has a specific meaning in this SDK.
+- **This repo is public — never include customer or internal data** in code, comments, commit messages, PR descriptions, or PR comments.
 
 ## Key architecture rule
 

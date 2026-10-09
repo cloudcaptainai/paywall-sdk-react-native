@@ -1026,28 +1026,18 @@ export const setAllowWebCheckoutWithoutUserId = (allow: boolean): void => {
 };
 
 /**
- * iOS only. Call before `initialize`, otherwise the first launch is already measured.
- *
- * Measures whether Apple Pay reports a card it can pay with at the origin external web
- * checkout is served from, and reports it to Helium so a workflow can target on it. The
- * first foreground launch after install delays the config request by up to two seconds so
- * the measurement can be reported; later launches report the stored measurement
- * immediately and re-measure in the background. A launch into the background skips the
- * probe and the wait, and measures once the app becomes active.
- *
- * The measurement is an optimization signal rather than a guarantee. It is taken in an
- * offscreen web view owned by the app, not in the browser the user is handed off to, and
- * the Wallet can change between the measurement and checkout. Nothing about presentation
- * waits on it.
- *
- * Measured only when external web checkout is configured. Defaults to `true`. Set to
- * `false` to stop measuring; the launch request then reports `unknown:notMeasured`. Apps
- * that declare `WKAppBoundDomains` must list `bundles.clickthrough.to` for it to be
- * measured; otherwise it reports `unknown:probeFailed`.
+ * iOS only. Call before `initialize`. Defaults to `true`, so the SDK measures browser Apple Pay
+ * readiness for external web checkout and reports it to Helium for targeting; pass `false` to opt
+ * out. Apps that declare `WKAppBoundDomains` must list `bundles.clickthrough.to` for the
+ * measurement to run.
  */
 export const setEnableWebApplePayReadiness = (enabled: boolean): void => {
   if (Platform.OS !== 'ios') {
     console.log('[Helium] setEnableWebApplePayReadiness is only available on iOS');
+    return;
+  }
+  if (typeof enabled !== 'boolean') {
+    console.error('[Helium] setEnableWebApplePayReadiness expects a boolean');
     return;
   }
   try {

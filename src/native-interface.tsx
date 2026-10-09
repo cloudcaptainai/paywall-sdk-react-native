@@ -1030,9 +1030,10 @@ export const setAllowWebCheckoutWithoutUserId = (allow: boolean): void => {
  *
  * Measures whether Apple Pay reports a card it can pay with at the origin external web
  * checkout is served from, and reports it to Helium so a workflow can target on it. The
- * first launch after install delays the config request by up to two seconds so the
- * measurement can be reported; later launches report the stored measurement immediately
- * and re-measure in the background.
+ * first foreground launch after install delays the config request by up to two seconds so
+ * the measurement can be reported; later launches report the stored measurement
+ * immediately and re-measure in the background. A launch into the background skips the
+ * probe and the wait, and measures once the app becomes active.
  *
  * The measurement is an optimization signal rather than a guarantee. It is taken in an
  * offscreen web view owned by the app, not in the browser the user is handed off to, and

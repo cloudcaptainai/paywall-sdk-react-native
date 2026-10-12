@@ -29,6 +29,7 @@ export {
   enableExternalWebCheckout,
   disableExternalWebCheckout,
   setAllowWebCheckoutWithoutUserId,
+  setEnableWebApplePayReadiness,
   hasActiveStripeEntitlement,
   hasActivePaddleEntitlement,
   createStripePortalSession,

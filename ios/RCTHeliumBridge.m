@@ -177,6 +177,10 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+    setEnableWebApplePayReadiness:(BOOL)enabled
+)
+
+RCT_EXTERN_METHOD(
     hasActiveStripeEntitlement:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject
 )

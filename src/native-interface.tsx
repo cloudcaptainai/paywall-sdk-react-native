@@ -1026,6 +1026,28 @@ export const setAllowWebCheckoutWithoutUserId = (allow: boolean): void => {
 };
 
 /**
+ * iOS only. Call before `initialize`. Defaults to `true`, so the SDK measures browser Apple Pay
+ * readiness for external web checkout and reports it to Helium for targeting; pass `false` to opt
+ * out. Apps that declare `WKAppBoundDomains` must list `bundles.clickthrough.to` for the
+ * measurement to run.
+ */
+export const setEnableWebApplePayReadiness = (enabled: boolean): void => {
+  if (Platform.OS !== 'ios') {
+    console.log('[Helium] setEnableWebApplePayReadiness is only available on iOS');
+    return;
+  }
+  if (typeof enabled !== 'boolean') {
+    console.error('[Helium] setEnableWebApplePayReadiness expects a boolean');
+    return;
+  }
+  try {
+    HeliumBridge.setEnableWebApplePayReadiness(enabled);
+  } catch (e) {
+    console.error('[Helium] setEnableWebApplePayReadiness error', e);
+  }
+};
+
+/**
  * iOS only. Returns `true` if the user has any active Stripe entitlement.
  */
 export const hasActiveStripeEntitlement = async (): Promise<boolean> => {

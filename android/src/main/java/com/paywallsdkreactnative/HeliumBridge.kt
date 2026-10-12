@@ -757,6 +757,10 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
+    fun setEnableWebApplePayReadiness(enabled: Boolean) {
+    }
+
+    @ReactMethod
     fun hasActiveStripeEntitlement(promise: Promise) {
         promise.resolve(false)
     }

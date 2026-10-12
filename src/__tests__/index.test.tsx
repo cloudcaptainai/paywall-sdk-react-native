@@ -39,6 +39,7 @@ jest.mock('react-native', () => {
     enableExternalWebCheckoutSuccessAndCancel: jest.fn(),
     disableExternalWebCheckout: jest.fn(),
     setAllowWebCheckoutWithoutUserId: jest.fn(),
+    setEnableWebApplePayReadiness: jest.fn(),
     hasActiveStripeEntitlement: jest.fn().mockResolvedValue(false),
     hasActivePaddleEntitlement: jest.fn().mockResolvedValue(false),
     createStripePortalSession: jest.fn().mockResolvedValue('https://portal'),
@@ -116,6 +117,7 @@ describe('public API surface', () => {
     'enableExternalWebCheckout',
     'disableExternalWebCheckout',
     'setAllowWebCheckoutWithoutUserId',
+    'setEnableWebApplePayReadiness',
     'hasActiveStripeEntitlement',
     'hasActivePaddleEntitlement',
     'createStripePortalSession',
@@ -224,6 +226,23 @@ describe('web checkout', () => {
     expect(bridge.enableExternalWebCheckout).not.toHaveBeenCalled();
   });
 
+  it('forwards the Apple Pay readiness flag to the bridge on iOS', () => {
+    jest.clearAllMocks();
+    Helium.setEnableWebApplePayReadiness(false);
+    expect(bridge.setEnableWebApplePayReadiness).toHaveBeenCalledWith(false);
+  });
+
+  it('ignores a non-boolean Apple Pay readiness flag without calling the bridge', () => {
+    jest.clearAllMocks();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      (Helium.setEnableWebApplePayReadiness as (enabled?: unknown) => void)();
+      expect(bridge.setEnableWebApplePayReadiness).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it('returns safe defaults without calling the bridge on non-iOS platforms', async () => {
     jest.clearAllMocks();
     const { Platform } = require('react-native');
@@ -239,7 +258,9 @@ describe('web checkout', () => {
         paymentProcessors: ['stripe'],
       });
       Helium.resetPaddleEntitlements();
+      Helium.setEnableWebApplePayReadiness(false);
 
+      expect(bridge.setEnableWebApplePayReadiness).not.toHaveBeenCalled();
       expect(bridge.hasActiveStripeEntitlement).not.toHaveBeenCalled();
       expect(bridge.hasActivePaddleEntitlement).not.toHaveBeenCalled();
       expect(bridge.getPaddleCustomerId).not.toHaveBeenCalled();

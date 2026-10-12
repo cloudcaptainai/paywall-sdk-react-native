@@ -728,6 +728,11 @@ class HeliumBridge: RCTEventEmitter {
     }
 
     @objc
+    public func setEnableWebApplePayReadiness(_ enabled: Bool) {
+        Helium.config.enableWebApplePayReadiness = enabled
+    }
+
+    @objc
     public func hasActiveStripeEntitlement(
         _ resolver: @escaping RCTPromiseResolveBlock,
         rejecter: @escaping RCTPromiseRejectBlock

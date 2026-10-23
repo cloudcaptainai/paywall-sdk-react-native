@@ -27,6 +27,7 @@ import com.tryhelium.paywall.core.event.HeliumEvent
 import com.tryhelium.paywall.core.event.HeliumEventDictionaryMapper
 import com.tryhelium.paywall.core.event.PaywallEventHandlers
 import com.tryhelium.paywall.core.event.PaywallSkippedReason
+import com.tryhelium.paywall.core.event.PaywallUnavailableReason
 import com.tryhelium.paywall.core.logger.HeliumLogLevel
 import com.tryhelium.paywall.core.logger.HeliumLogger
 import com.tryhelium.paywall.delegate.HeliumPaywallDelegate
@@ -281,6 +282,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
             eventMap["productId"]?.let { eventMap["productKey"] = it }
             eventMap["buttonName"]?.let { eventMap["ctaName"] = it }
             applyEventFieldAliases(eventMap)
+            attachMissingPaywallReason(eventMap)
             BridgeStateManager.safeSendEvent(EVENT_PAYWALL_EVENT, eventMap)
         }
 
@@ -373,6 +375,7 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
                 runCatching {
                     val eventMap = HeliumEventDictionaryMapper.toDictionary(event).toMutableMap()
                     applyEventFieldAliases(eventMap)
+                    attachMissingPaywallReason(eventMap)
                     presentationId?.let { eventMap["presentationId"] = it }
                     BridgeStateManager.safeSendEvent(EVENT_PAYWALL_HANDLERS, eventMap)
                 }.onFailure { Log.w(TAG, "Failed to forward paywall event", it) }
@@ -1066,4 +1069,10 @@ private fun applyEventFieldAliases(eventMap: MutableMap<String, Any?>) {
     if (eventMap["customPaywallActionParams"] == null) {
         eventMap["params"]?.let { eventMap["customPaywallActionParams"] = it }
     }
+}
+
+private fun attachMissingPaywallReason(eventMap: MutableMap<String, Any?>) {
+    if (eventMap["paywallUnavailableReason"] != PaywallUnavailableReason.TRIGGER_HAS_NO_PAYWALL.rawValue) return
+    val trigger = eventMap["triggerName"] as? String ?: return
+    MissingPaywallReason.forTrigger(trigger)?.let { eventMap["reason"] = it }
 }

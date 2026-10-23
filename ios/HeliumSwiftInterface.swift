@@ -238,6 +238,7 @@ class HeliumBridge: RCTEventEmitter {
                 eventDict["ctaName"] = buttonName
             }
             applyEventFieldAliases(&eventDict)
+            attachMissingPaywallReason(&eventDict)
             PurchaseStateManager.shared.safeSendEvent(eventName: "onHeliumPaywallEvent", eventData: eventDict)
         }
 
@@ -383,6 +384,7 @@ class HeliumBridge: RCTEventEmitter {
                 onAnyEvent: { event in
                     var eventDict = event.toDictionary()
                     applyEventFieldAliases(&eventDict)
+                    attachMissingPaywallReason(&eventDict)
                     if let presentationId {
                         eventDict["presentationId"] = presentationId
                     }
@@ -883,6 +885,23 @@ func applyEventFieldAliases(_ eventDict: inout [String: Any]) {
     if eventDict["customPaywallActionParams"] == nil, let params = eventDict["params"] {
         eventDict["customPaywallActionParams"] = params
     }
+}
+
+func attachMissingPaywallReason(_ eventDict: inout [String: Any]) {
+    guard eventDict["paywallUnavailableReason"] as? String == PaywallUnavailableReason.triggerHasNoPaywall.rawValue,
+          let trigger = eventDict["triggerName"] as? String,
+          let reason = missingPaywallReason(trigger: trigger) else {
+        return
+    }
+    eventDict["reason"] = reason
+}
+
+private func missingPaywallReason(trigger: String) -> String? {
+    #if HELIUM_NATIVE_MISSING_PAYWALL_REASON
+    return Helium.shared.getMissingPaywallReason(trigger: trigger)
+    #else
+    return nil
+    #endif
 }
 
 func convertMarkersToBooleans(_ input: [String: Any]?) -> [String: Any]? {

@@ -1,5 +1,6 @@
 import { NativeModules } from 'react-native';
 import * as Helium from '../index';
+import type { HeliumPaywallEvent, PaywallOpenEvent, PaywallOpenFailedEvent } from '../index';
 
 jest.mock('react-native', () => {
   const listeners = new Map<string, Array<(payload?: unknown) => void>>();
@@ -616,6 +617,106 @@ describe('presentUpsell skip and entitled handling', () => {
       '[Helium] onEntitled callback failed',
       expect.any(Error)
     );
+  });
+});
+
+describe('server no-paywall reason', () => {
+  const REASON = 'App-to-Web paywalls are not available in this region.';
+  const lastId = (): string => bridge.presentUpsell.mock.calls.at(-1)?.[4];
+  const emitPerPresentation = (event: Record<string, unknown>) =>
+    emitNativeEvent('paywallEventHandlers', {
+      triggerName: 'my_trigger',
+      paywallName: 'test-paywall',
+      presentationId: lastId(),
+      ...event,
+    });
+  let consoleLog: jest.SpyInstance;
+
+  beforeEach(async () => {
+    await Helium.resetHelium();
+    await Helium.initialize({ apiKey: 'test-key' });
+    consoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLog.mockRestore();
+  });
+
+  it('passes the reason to onOpenFailed and onAnyEvent on paywallOpenFailed', () => {
+    const onOpenFailed = jest.fn((event: PaywallOpenFailedEvent) => event.reason);
+    const onAnyEvent = jest.fn();
+    Helium.presentUpsell({
+      triggerName: 'my_trigger',
+      eventHandlers: { onOpenFailed, onAnyEvent },
+    });
+
+    emitPerPresentation({
+      type: 'paywallOpenFailed',
+      paywallUnavailableReason: 'triggerHasNoPaywall',
+      reason: REASON,
+    });
+
+    expect(onOpenFailed).toHaveBeenCalledTimes(1);
+    expect(onOpenFailed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'paywallOpenFailed',
+        triggerName: 'my_trigger',
+        paywallUnavailableReason: 'triggerHasNoPaywall',
+        reason: REASON,
+      })
+    );
+    expect(onAnyEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'paywallOpenFailed', reason: REASON })
+    );
+  });
+
+  it('passes the reason to onOpen when the fallback paywall shows for a trigger without a paywall', () => {
+    const onOpen = jest.fn((event: PaywallOpenEvent) => event.reason);
+    Helium.presentUpsell({ triggerName: 'my_trigger', eventHandlers: { onOpen } });
+
+    emitPerPresentation({
+      type: 'paywallOpen',
+      paywallUnavailableReason: 'triggerHasNoPaywall',
+      reason: REASON,
+    });
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'paywallOpen',
+        paywallUnavailableReason: 'triggerHasNoPaywall',
+        reason: REASON,
+      })
+    );
+  });
+
+  it('leaves reason undefined when native sends none', () => {
+    const onOpenFailed = jest.fn();
+    Helium.presentUpsell({ triggerName: 'my_trigger', eventHandlers: { onOpenFailed } });
+
+    emitPerPresentation({ type: 'paywallOpenFailed', paywallUnavailableReason: 'notInitialized' });
+
+    expect(onOpenFailed).toHaveBeenCalledTimes(1);
+    expect(onOpenFailed).toHaveBeenCalledWith(
+      expect.not.objectContaining({ reason: expect.anything() })
+    );
+  });
+
+  it('passes the reason to the global onHeliumPaywallEvent handler', async () => {
+    const onHeliumPaywallEvent = jest.fn((event: HeliumPaywallEvent) => event.reason);
+    await Helium.resetHelium();
+    await Helium.initialize({ apiKey: 'test-key', onHeliumPaywallEvent });
+
+    emitNativeEvent('onHeliumPaywallEvent', {
+      type: 'paywallOpenFailed',
+      triggerName: 'my_trigger',
+      paywallName: 'test-paywall',
+      paywallUnavailableReason: 'triggerHasNoPaywall',
+      reason: REASON,
+    });
+
+    expect(onHeliumPaywallEvent).toHaveBeenCalledTimes(1);
+    expect(onHeliumPaywallEvent).toHaveReturnedWith(REASON);
   });
 });
 

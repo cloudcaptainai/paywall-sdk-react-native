@@ -16,6 +16,10 @@ buildscript {
 }
 
 
+def heliumCoreVersion = "4.7.3"
+def heliumCoreHasMissingPaywallReason =
+  org.gradle.util.GradleVersion.version(heliumCoreVersion) >= org.gradle.util.GradleVersion.version("4.8.0")
+
 def isNewArchitectureEnabled() {
   return rootProject.hasProperty("newArchEnabled") && rootProject.getProperty("newArchEnabled") == "true"
 }
@@ -48,6 +52,12 @@ android {
       main {
         manifest.srcFile "src/main/AndroidManifestNew.xml"
       }
+    }
+  }
+
+  sourceSets {
+    main {
+      java.srcDirs += heliumCoreHasMissingPaywallReason ? "src/missingPaywallReason/java" : "src/missingPaywallReasonStub/java"
     }
   }
 
@@ -84,7 +94,7 @@ def kotlin_version = getExtOrDefault("kotlinVersion")
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-  implementation("com.tryhelium.paywall:core:4.7.3")
+  implementation("com.tryhelium.paywall:core:$heliumCoreVersion")
   implementation "com.google.code.gson:gson:2.10.1"
   implementation("com.android.billingclient:billing:8.0.0")
 }

@@ -169,6 +169,17 @@ describe('user traits', () => {
     });
   });
 
+  it('setUserTraits sends dates as ISO strings and drops nulls in arrays', () => {
+    Helium.setUserTraits({
+      signedUpAt: new Date('2026-01-02T03:04:05.000Z'),
+      tags: ['a', null, 'b'],
+    });
+    expect(bridge.setUserTraits).toHaveBeenCalledWith({
+      signedUpAt: '2026-01-02T03:04:05.000Z',
+      tags: ['a', 'b'],
+    });
+  });
+
   it('addUserTraits converts booleans to bridge markers', () => {
     Helium.addUserTraits({ optedIn: false });
     expect(bridge.addUserTraits).toHaveBeenCalledWith({

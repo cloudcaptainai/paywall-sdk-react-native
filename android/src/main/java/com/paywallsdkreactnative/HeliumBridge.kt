@@ -558,13 +558,21 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
 
     @ReactMethod
     fun setUserTraits(traits: ReadableMap) {
-        val userTraits = convertToHeliumUserTraits(convertMarkersToBooleans(traits)) ?: HeliumUserTraits(emptyMap())
-        Helium.identity.setUserTraits(userTraits)
+        try {
+            val userTraits = convertToHeliumUserTraits(convertMarkersToBooleans(traits)) ?: HeliumUserTraits(emptyMap())
+            Helium.identity.setUserTraits(userTraits)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set user traits", e)
+        }
     }
 
     @ReactMethod
     fun addUserTraits(traits: ReadableMap) {
-        convertToHeliumUserTraits(convertMarkersToBooleans(traits))?.let { Helium.identity.addUserTraits(it) }
+        try {
+            convertToHeliumUserTraits(convertMarkersToBooleans(traits))?.let { Helium.identity.addUserTraits(it) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to add user traits", e)
+        }
     }
 
     @ReactMethod

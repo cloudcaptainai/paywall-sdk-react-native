@@ -1244,7 +1244,7 @@ export function convertBooleansToMarkers(
 }
 function convertValueBooleansToMarkers(value: any): any {
   if (value instanceof Date) {
-    return value.toISOString();
+    return isNaN(value.getTime()) ? String(value) : value.toISOString();
   } else if (typeof value === 'boolean') {
     return value ? '__helium_rn_bool_true__' : '__helium_rn_bool_false__';
   } else if (value && typeof value === 'object' && !Array.isArray(value)) {

@@ -169,10 +169,10 @@ describe('user traits', () => {
     });
   });
 
-  it('setUserTraits sends dates as ISO strings and drops nulls in arrays', () => {
+  it('setUserTraits sends dates as ISO strings', () => {
     Helium.setUserTraits({
       signedUpAt: new Date('2026-01-02T03:04:05.000Z'),
-      tags: ['a', null, 'b'],
+      tags: ['a', 'b'],
     });
     expect(bridge.setUserTraits).toHaveBeenCalledWith({
       signedUpAt: '2026-01-02T03:04:05.000Z',

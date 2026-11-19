@@ -88,6 +88,19 @@ RCT_EXTERN_METHOD(
 )
 
 RCT_EXTERN_METHOD(
+    setUserTraits:(NSDictionary *)traits
+)
+
+RCT_EXTERN_METHOD(
+    addUserTraits:(NSDictionary *)traits
+)
+
+RCT_EXTERN_METHOD(
+    getUserTraits:(RCTPromiseResolveBlock)resolve
+    rejecter:(RCTPromiseRejectBlock)reject
+)
+
+RCT_EXTERN_METHOD(
     hasEntitlementForPaywall:(NSString *)trigger
     resolver:(RCTPromiseResolveBlock)resolve
     rejecter:(RCTPromiseRejectBlock)reject

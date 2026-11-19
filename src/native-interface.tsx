@@ -709,6 +709,47 @@ export const setThirdPartyAnalyticsAnonymousId = (anonymousId: string | null): v
 };
 
 /**
+ * Replaces all custom user traits with the provided traits. Traits are persisted across app sessions.
+ *
+ * Traits apply to analytics right away. Paywall targeting uses the traits present when Helium
+ * initializes, so to target on updated traits, call `resetHelium()` and `initialize()` again.
+ */
+export const setUserTraits = (traits: Record<string, any>): void => {
+  try {
+    HeliumBridge.setUserTraits(convertBooleansToMarkers(traits) ?? {});
+  } catch (e) {
+    console.error('[Helium] Failed to set user traits', e);
+  }
+};
+
+/**
+ * Merges the provided traits into the current custom user traits, overwriting matching keys.
+ * Traits are persisted across app sessions.
+ *
+ * Traits apply to analytics right away. Paywall targeting uses the traits present when Helium
+ * initializes, so to target on updated traits, call `resetHelium()` and `initialize()` again.
+ */
+export const addUserTraits = (traits: Record<string, any>): void => {
+  try {
+    HeliumBridge.addUserTraits(convertBooleansToMarkers(traits) ?? {});
+  } catch (e) {
+    console.error('[Helium] Failed to add user traits', e);
+  }
+};
+
+/**
+ * Returns the current custom user traits, or an empty object if none are set.
+ */
+export const getUserTraits = async (): Promise<Record<string, any>> => {
+  try {
+    return (await HeliumBridge.getUserTraits()) ?? {};
+  } catch (e) {
+    console.error('[Helium] Failed to get user traits', e);
+    return {};
+  }
+};
+
+/**
  * Checks if the user has an active entitlement for any product attached to the paywall that will show for provided trigger.
  * @param trigger The trigger name to check entitlement for
  * @returns Promise resolving to true if entitled, false if not, or undefined if not known (i.e. the paywall is not downloaded yet)

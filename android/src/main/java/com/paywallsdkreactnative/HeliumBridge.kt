@@ -21,6 +21,7 @@ import com.tryhelium.paywall.core.HeliumLightDarkMode
 import com.tryhelium.paywall.core.HeliumPaywallTransactionStatus
 import com.tryhelium.paywall.core.HeliumUserTraits
 import com.tryhelium.paywall.core.HeliumUserTraits.Companion.create
+import com.tryhelium.paywall.core.HeliumUserTraitsArgument
 import com.tryhelium.paywall.core.HeliumWrapperSdkConfig
 import com.tryhelium.paywall.core.PaywallPresentationConfig
 import com.tryhelium.paywall.core.event.HeliumEvent
@@ -36,6 +37,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.coroutines.resume
 
 // Singleton to manage bridge state that survives module recreation (dev reloads, resets).
@@ -551,6 +556,35 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         Helium.identity.thirdPartyAnalyticsAnonymousId = anonymousId
     }
 
+    @ReactMethod
+    fun setUserTraits(traits: ReadableMap) {
+        try {
+            val userTraits = convertToHeliumUserTraits(convertMarkersToBooleans(traits)) ?: HeliumUserTraits(emptyMap())
+            Helium.identity.setUserTraits(userTraits)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set user traits", e)
+        }
+    }
+
+    @ReactMethod
+    fun addUserTraits(traits: ReadableMap) {
+        try {
+            convertToHeliumUserTraits(convertMarkersToBooleans(traits))?.let { Helium.identity.addUserTraits(it) }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to add user traits", e)
+        }
+    }
+
+    @ReactMethod
+    fun getUserTraits(promise: Promise) {
+        try {
+            val traits = Helium.identity.getUserTraits().traits.mapValues { (_, value) -> convertTraitArgumentToValue(value) }
+            promise.resolve(mapToWritableMap(traits))
+        } catch (e: Exception) {
+            promise.reject("GET_USER_TRAITS_ERROR", "Failed to get user traits: ${e.message}", e)
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Entitlements
     // -------------------------------------------------------------------------
@@ -873,6 +907,25 @@ class HeliumBridge(private val reactContext: ReactApplicationContext) :
         val nonNull = input.filterValues { it != null } as Map<String, Any>
         if (nonNull.isEmpty()) return null
         return nonNull.create()
+    }
+
+    private fun convertTraitArgumentToValue(argument: HeliumUserTraitsArgument): Any {
+        return when (argument) {
+            is HeliumUserTraitsArgument.StringParam -> argument.value
+            is HeliumUserTraitsArgument.IntParam -> argument.value
+            is HeliumUserTraitsArgument.LongParam -> argument.value
+            is HeliumUserTraitsArgument.DoubleParam -> argument.value
+            is HeliumUserTraitsArgument.BooleanParam -> argument.value
+            is HeliumUserTraitsArgument.DateParam -> formatIso8601(argument.value)
+            is HeliumUserTraitsArgument.Array -> argument.items.map { convertTraitArgumentToValue(it) }
+            is HeliumUserTraitsArgument.Complex -> argument.properties.mapValues { (_, value) -> convertTraitArgumentToValue(value) }
+        }
+    }
+
+    private fun formatIso8601(date: Date): String {
+        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+        formatter.timeZone = TimeZone.getTimeZone("UTC")
+        return formatter.format(date)
     }
 
     /**

@@ -508,6 +508,24 @@ class HeliumBridge: RCTEventEmitter {
     }
 
     @objc
+    public func setUserTraits(_ traits: [String: Any]) {
+        Helium.identify.setUserTraits(convertMarkersToBooleans(traits) ?? [:])
+    }
+
+    @objc
+    public func addUserTraits(_ traits: [String: Any]) {
+        Helium.identify.addUserTraits(convertMarkersToBooleans(traits) ?? [:])
+    }
+
+    @objc
+    public func getUserTraits(
+        _ resolver: @escaping RCTPromiseResolveBlock,
+        rejecter: @escaping RCTPromiseRejectBlock
+    ) {
+        resolver(Helium.identify.getUserTraits())
+    }
+
+    @objc
     public func hasEntitlementForPaywall(
         _ trigger: String,
         resolver: @escaping RCTPromiseResolveBlock,

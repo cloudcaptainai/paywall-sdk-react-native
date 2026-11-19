@@ -21,6 +21,9 @@ jest.mock('react-native', () => {
     setCustomUserId: jest.fn(),
     getCustomUserId: jest.fn().mockResolvedValue('user-1'),
     setThirdPartyAnalyticsAnonymousId: jest.fn(),
+    setUserTraits: jest.fn(),
+    addUserTraits: jest.fn(),
+    getUserTraits: jest.fn().mockResolvedValue({ plan: 'pro' }),
     hasEntitlementForPaywall: jest.fn(),
     hasAnyActiveSubscription: jest.fn(),
     hasAnyEntitlement: jest.fn(),
@@ -103,6 +106,9 @@ describe('public API surface', () => {
     'clearCustomUserId',
     'getCustomUserId',
     'setThirdPartyAnalyticsAnonymousId',
+    'setUserTraits',
+    'addUserTraits',
+    'getUserTraits',
     'hasEntitlementForPaywall',
     'hasAnyActiveSubscription',
     'hasAnyEntitlement',
@@ -151,6 +157,43 @@ describe('custom user id', () => {
 
   it('getCustomUserId resolves the bridge value', async () => {
     await expect(Helium.getCustomUserId()).resolves.toBe('user-1');
+  });
+});
+
+describe('user traits', () => {
+  it('setUserTraits converts booleans to bridge markers', () => {
+    Helium.setUserTraits({ isPremium: true, level: 2 });
+    expect(bridge.setUserTraits).toHaveBeenCalledWith({
+      isPremium: '__helium_rn_bool_true__',
+      level: 2,
+    });
+  });
+
+  it('setUserTraits sends dates as ISO strings', () => {
+    Helium.setUserTraits({
+      signedUpAt: new Date('2026-01-02T03:04:05.000Z'),
+      tags: ['a', 'b'],
+    });
+    expect(bridge.setUserTraits).toHaveBeenCalledWith({
+      signedUpAt: '2026-01-02T03:04:05.000Z',
+      tags: ['a', 'b'],
+    });
+  });
+
+  it('addUserTraits converts booleans to bridge markers', () => {
+    Helium.addUserTraits({ optedIn: false });
+    expect(bridge.addUserTraits).toHaveBeenCalledWith({
+      optedIn: '__helium_rn_bool_false__',
+    });
+  });
+
+  it('getUserTraits returns the native traits', async () => {
+    await expect(Helium.getUserTraits()).resolves.toEqual({ plan: 'pro' });
+  });
+
+  it('getUserTraits returns an empty object when the bridge fails', async () => {
+    bridge.getUserTraits.mockRejectedValueOnce(new Error('boom'));
+    await expect(Helium.getUserTraits()).resolves.toEqual({});
   });
 });
 
